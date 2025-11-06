@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "402594454491",
+    "project_id": "monexa-4a222",
+    "storage_bucket": "monexa-4a222.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:402594454491:android:99d982040d80dfa43f65fe",
+        "android_client_info": {
+          "package_name": "com.appsbyanandakumar.billing"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAy4gRElmz_L0U8ZGSskoP7vqmVuZeafaU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
