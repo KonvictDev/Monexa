@@ -1,4 +1,4 @@
-// lib/model/user_profile.dart
+// lib/model/user_profile.dart (CORRECTED)
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -12,11 +12,10 @@ class UserProfile {
   String businessAddress;
   String? gstin;
 
-  // ➡️ NEW: Subscription and Blocking Fields
+  // Subscription and Blocking Fields
   final bool isPro;
   final DateTime? proExpiry;
   final bool isBlocked;
-  // ⬅️ END NEW
 
   UserProfile({
     required this.uid,
@@ -27,7 +26,6 @@ class UserProfile {
     required this.businessName,
     required this.businessAddress,
     this.gstin,
-    // ➡️ Initialize new fields with safe defaults
     this.isPro = false,
     this.proExpiry,
     this.isBlocked = false,
@@ -45,28 +43,28 @@ class UserProfile {
       'businessAddress': businessAddress,
       'gstin': gstin,
       'lastUpdated': FieldValue.serverTimestamp(),
-      // We don't typically save isPro/isBlocked from the client,
-      // but ensure other fields are included.
+      // isPro/isBlocked are typically managed by the server/Cloud Functions
     };
   }
 
-  // To create from Firestore (MODIFIED to include new fields)
+  // To create from Firestore (MODIFIED and FIXED for TypeErrors)
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
-      uid: json['uid'],
-      phoneNumber: json['phoneNumber'],
-      name: json['name'],
-      age: json['age'] as int?,
-      email: json['email'],
-      businessName: json['businessName'],
-      businessAddress: json['businessAddress'],
-      gstin: json['gstin'] as String?,
+      // ⚠️ FIX: Use ?? '' to safely handle null values for all required Strings
+      uid: json['uid'] as String? ?? '',
+      phoneNumber: json['phoneNumber'] as String? ?? '',
+      name: json['name'] as String? ?? 'User', // Use a default placeholder name
+      age: json['age'] as int?, // Nullable int is fine
+      email: json['email'] as String? ?? '',
+      businessName: json['businessName'] as String? ?? '',
+      businessAddress: json['businessAddress'] as String? ?? '',
+      gstin: json['gstin'] as String?, // Nullable String is fine
 
-      // ➡️ Map Subscription & Blocking Status
+      // Map Subscription & Blocking Status (already safe with ?? false)
       isPro: json['isPro'] as bool? ?? false,
       isBlocked: json['isBlocked'] as bool? ?? false,
 
-      // Convert Firestore Timestamp to Dart DateTime
+      // Convert Firestore Timestamp to Dart DateTime (already safe with ?.)
       proExpiry: (json['proExpiry'] as Timestamp?)?.toDate(),
     );
   }

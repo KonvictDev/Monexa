@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../model/user_profile.dart';
 import '../../repositories/auth_repository.dart';
 import '../../repositories/settings_repository.dart';
+import '../subscription/subscription_screen.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   final User firebaseUser;
@@ -57,7 +58,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile saved successfully!')),
         );
-        Navigator.pop(context);
+
+        // 🛑 CRITICAL FIX: Replace the current screen with the SubscriptionScreen
+        // This routes the user directly back to the final flow screen.
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            // Navigating to the SubscriptionScreen
+            builder: (_) => const SubscriptionScreen(),
+          ),
+              (route) => false, // Clears the entire stack (RegisterScreen, OTPScreen, PhoneSignInScreen)
+        );
       }
     } catch (e) {
       if (mounted) {

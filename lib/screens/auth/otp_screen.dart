@@ -2,11 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pinput/pinput.dart';
+
 import '../../repositories/auth_repository.dart';
+// ➡️ You MUST ensure this import path is correct in your project
+import 'register_screen.dart';
 
 class OTPScreen extends ConsumerStatefulWidget {
   final String verificationId;
-  final String phoneNumber; // ✅ Added this
+  final String phoneNumber;
 
   const OTPScreen({
     super.key,
@@ -50,9 +53,13 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
     });
   }
 
+  // ➡️ CRITICAL FIX: Checks profile and navigates based on existence
   void _verifyOtp() async {
     setState(() => _isLoading = true);
-    final isVerified = await ref.read(authRepositoryProvider).verifyOtp(
+
+    final authRepo = ref.read(authRepositoryProvider);
+
+    final isVerified = await authRepo.verifyOtp(
       verificationId: widget.verificationId,
       userOtp: _pinController.text,
     );
@@ -61,8 +68,35 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
     setState(() => _isLoading = false);
 
     if (isVerified) {
-      Navigator.popUntil(context, (route) => route.isFirst);
+      final user = authRepo.currentUser;
+
+      if (user != null) {
+        final profileExists = await authRepo.doesProfileExist(user.uid);
+
+        if (!mounted) return;
+
+        if (!profileExists) {
+          // 1. Profile DOES NOT exist: Navigate to Registration
+          // Clears the entire sign-in stack, ensuring AuthWrapper doesn't interfere.
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              // ⚠️ Ensure RegisterScreen is the correct class name
+              builder: (_) => RegisterScreen(firebaseUser: user),
+            ),
+                (route) => false, // Remove all previous routes
+          );
+        } else {
+          // 2. Profile EXISTS: Navigate back to the caller screen (AuthWrapper/SubscriptionScreen)
+          // Pop OTPScreen, then pop PhoneSignInScreen.
+          Navigator.of(context).pop();
+          Navigator.of(context).pop();
+        }
+      } else {
+        // Fallback pop if user is unexpectedly null after verification
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
     } else {
+      // Verification failed
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid OTP. Please try again.')),
       );
@@ -73,7 +107,7 @@ class _OTPScreenState extends ConsumerState<OTPScreen> {
     setState(() => _isResending = true);
     try {
       await ref.read(authRepositoryProvider).sendOtp(
-        phoneNumber: widget.phoneNumber, // ✅ Use the same number
+        phoneNumber: widget.phoneNumber,
         context: context,
         onVerificationFailed: (e) {
           ScaffoldMessenger.of(context).showSnackBar(

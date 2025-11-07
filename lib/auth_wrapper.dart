@@ -7,23 +7,26 @@ import 'package:billing/screens/auth/pin_setup_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:package_info_plus/package_info_plus.dart'; // ⬅️ IMPORT PACKAGE INFO
+import 'package:package_info_plus/package_info_plus.dart';
 import 'onboarding_screen.dart';
 import 'main_navigation_screen.dart';
 import 'screens/force_update_screen.dart';
 import 'providers/subscription_provider.dart';
 
-// ➡️ NEW: Provider to fetch the minimum required version from Firebase
+// Provider to fetch the minimum required version from Firebase
 final minVersionProvider = FutureProvider<String?>((ref) async {
   try {
     final doc = await FirebaseFirestore.instance.doc('app_config/settings').get();
+    // Safety: Ensure key exists and is a String
     return doc.data()?['min_version'] as String?;
   } catch (e) {
+    // Log the Firestore PERMISSION_DENIED error here
+    debugPrint('Error fetching min version: $e');
     return null;
   }
 });
 
-// ➡️ NEW: Provider to asynchronously fetch the current app version
+// Provider to asynchronously fetch the current app version
 final currentVersionProvider = FutureProvider<String>((ref) async {
   final info = await PackageInfo.fromPlatform();
   return info.version;
@@ -43,15 +46,18 @@ class AuthWrapper extends ConsumerWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final minRequiredVersion = minVersionAsync.value;
-    final currentVersion = currentVersionAsync.value; // Guaranteed to be available here
+    // Use valueOrNull for safe access
+    final minRequiredVersion = minVersionAsync.valueOrNull;
+    final currentVersion = currentVersionAsync.valueOrNull;
 
+    // Check for Force Update only if both versions are available
     if (minRequiredVersion != null && currentVersion != null && _isUpdateRequired(currentVersion, minRequiredVersion)) {
       const storeUrl = 'https://play.google.com/store/apps/details?id=com.monexa.billing';
       return ForceUpdateScreen(minVersion: minRequiredVersion, storeUrl: storeUrl);
     }
 
     // 2️⃣ Check for User Blocking
+    // This now uses the fixed isBlockedProvider which handles AsyncError safely.
     final isBlocked = ref.watch(isBlockedProvider);
     if (isBlocked) {
       return const Scaffold(
@@ -87,7 +93,6 @@ class AuthWrapper extends ConsumerWidget {
     }
   }
 
-  // ➡️ MODIFIED: Now takes currentVersion as a direct argument
   bool _isUpdateRequired(String currentVersion, String minRequiredVersion) {
     final minParts = minRequiredVersion.split('.').map(int.parse).toList();
     final currentParts = currentVersion.split('.').map(int.parse).toList();

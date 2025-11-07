@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../model/user_profile.dart'; // Import the new model
+import '../model/user_profile.dart';
 
 // Provider for the repository
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -18,11 +18,11 @@ final authStateProvider = StreamProvider<User?>((ref) {
 
 class AuthRepository {
   final FirebaseAuth _auth;
-  final FirebaseFirestore _firestore; // Kept private here
+  final FirebaseFirestore _firestore;
 
   AuthRepository(this._auth, this._firestore);
 
-  // ➡️ NEW: Public Getter for Firestore instance (Needed by subscription_provider)
+  // Public Getter for Firestore instance (Needed by subscription_provider)
   FirebaseFirestore get firestoreInstance => _firestore;
 
   // Get the current user
@@ -31,10 +31,16 @@ class AuthRepository {
   // Stream for auth state changes
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // ➡️ NEW/FIXED: Helper function to map Firestore document to UserProfile
+  // ➡️ FIXED: Helper function to map Firestore document to UserProfile
   UserProfile? mapUserProfile(DocumentSnapshot doc) {
     if (doc.exists && doc.data() != null) {
-      return UserProfile.fromJson(doc.data() as Map<String, dynamic>);
+      // Create a mutable map from the document data
+      final data = doc.data()! as Map<String, dynamic>;
+
+      // CRITICAL FIX: Add the document ID (UID) to the data map
+      data['uid'] = doc.id;
+
+      return UserProfile.fromJson(data);
     }
     return null;
   }
@@ -48,6 +54,7 @@ class AuthRepository {
   // Check if a user profile exists
   Future<bool> doesProfileExist(String uid) async {
     final doc = await _firestore.collection('users').doc(uid).get();
+    // The profile exists if the document exists in Firestore
     return doc.exists;
   }
 
@@ -70,7 +77,6 @@ class AuthRepository {
     await _auth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
       verificationCompleted: (PhoneAuthCredential credential) async {
-        // Auto-retrieval (e.g., on Android)
         await _auth.signInWithCredential(credential);
       },
       verificationFailed: onVerificationFailed,

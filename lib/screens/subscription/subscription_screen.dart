@@ -1,8 +1,13 @@
+// lib/screens/subscription/subscription_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import '../../providers/subscription_provider.dart';
 import '../../services/in_app_billing_service.dart';
+import '../../repositories/auth_repository.dart';
+import '../auth/phone_sign_in_screen.dart';
+import '../auth/register_screen.dart'; // Still imported for completeness but its logic moved to OTPScreen
 
 // ⚠️ IMPORTANT: These MUST match the SKUs defined in your Google Play/App Store Consoles.
 const Set<String> _productIds = {
@@ -38,20 +43,17 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       final billingService = ref.read(inAppBillingServiceProvider);
       final products = await billingService.fetchProducts();
 
-      // Ensure the required products are fetched
-      if (products.isEmpty) {
+      if (products.isEmpty && await billingService.isStoreAvailable()) {
         setState(() {
-          _errorMessage = 'In-App Billing is not available or products are misconfigured.';
+          _errorMessage = 'Products not loaded. Check SKUs.';
         });
       }
 
       setState(() {
         _products = products;
         _isLoading = false;
-        // Sort products for display (e.g., monthly first, then annual)
         _products.sort((a, b) => a.id.compareTo(b.id));
       });
-
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to load products: $e';
@@ -61,24 +63,68 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   }
 
   void _subscribe(ProductDetails product) {
-    setState(() => _isLoading = true);
     final billingService = ref.read(inAppBillingServiceProvider);
     billingService.buySubscription(product).then((_) {
       // The IAP stream listener handles success/error/completion/state update.
-      // We only need to wait for the next screen build or pop.
-      // Do NOT set isLoading=false here, as the purchase flow is external.
     }).catchError((e) {
       setState(() {
         _errorMessage = 'Purchase failed to start: $e';
-        _isLoading = false;
       });
     });
   }
 
+  // ➡️ CLEANED UP: Only navigates to the sign-in screen.
+  void _navigateToSignIn() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PhoneSignInScreen()),
+    );
+    // Profile check and redirection is now handled upon successful OTP verification.
+  }
+
+  // ⚠️ _checkProfileAndNavigate method is REMOVED from here.
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // 1. WATCH STATUSES: Watch the Pro status and the *current processing status*
     final isPro = ref.watch(isProProvider);
+    final isProcessing = ref.watch(isProcessingPurchaseProvider);
+
+    final authState = ref.watch(authStateProvider);
+    final bool isLoggedIn = authState.value != null;
+    final bool authLoading = authState.isLoading;
+
+    Widget content;
+
+    // Check if verification is currently processing (from server call)
+    if (isProcessing) {
+      content = const Center(child: CircularProgressIndicator());
+    } else if (authLoading) {
+      content = const Center(child: CircularProgressIndicator());
+    } else if (!isLoggedIn) {
+      // GATED: User must sign in
+      content = _buildAuthRequiredCard(context, theme, _navigateToSignIn);
+    } else if (_isLoading) {
+      content = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      content = Center(
+          child: Text('Error: $_errorMessage',
+              style: TextStyle(color: theme.colorScheme.error)));
+    } else if (isPro) {
+      // 2. SUCCESS: Show the Pro Status Card (CORRECT: User is already subscribed)
+      content = _buildProStatusCard(context);
+    } else {
+      // 3. User is logged in, not Pro, and products loaded
+      content = Column(
+        children: [
+          ..._products.map((product) => _buildProductCard(context, product)).toList(),
+          const SizedBox(height: 30),
+          _buildFeatureComparison(context),
+        ],
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -106,25 +152,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
             ),
             const SizedBox(height: 30),
 
-            // --- Status and Error ---
-            if (_isLoading)
-              const Center(child: CircularProgressIndicator())
-            else if (_errorMessage != null)
-              Center(child: Text('Error: $_errorMessage', style: TextStyle(color: theme.colorScheme.error)))
-            else if (isPro)
-                _buildProStatusCard(context),
-
-            if (_errorMessage == null && !isPro) ...[
-              // --- Price Cards ---
-              ..._products.map((product) =>
-                  _buildProductCard(context, product)
-              ).toList(),
-
-              const SizedBox(height: 30),
-
-              // --- Feature Comparison ---
-              _buildFeatureComparison(context),
-            ],
+            // --- Dynamic Content ---
+            content,
 
             const SizedBox(height: 80),
           ],
@@ -133,7 +162,39 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     );
   }
 
-  // --- BUILDER METHODS ---
+  // --- WIDGETS (Unchanged structure) ---
+  Widget _buildAuthRequiredCard(BuildContext context, ThemeData theme, VoidCallback onSignIn) {
+    return Card(
+      color: theme.colorScheme.errorContainer.withOpacity(0.3),
+      margin: const EdgeInsets.symmetric(vertical: 20),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          children: [
+            Icon(Icons.lock_person_rounded, color: theme.colorScheme.error, size: 36),
+            const SizedBox(height: 12),
+            Text(
+              'Sign In Required',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You must sign in with your phone number to link the Pro status to your cloud profile.',
+              style: TextStyle(fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onSignIn,
+              icon: const Icon(Icons.phone_iphone_rounded),
+              label: const Text('Sign In Now'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildProStatusCard(BuildContext context) {
     return Card(
@@ -160,6 +221,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   Widget _buildProductCard(BuildContext context, ProductDetails product) {
     final theme = Theme.of(context);
     final isMonthly = product.id.contains('monthly');
+    final isProcessing = ref.watch(isProcessingPurchaseProvider);
 
     return Card(
       elevation: isMonthly ? 2 : 4,
@@ -168,7 +230,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         title: Text(
-          product.title.split('(').first.trim(), // Clean up title from store
+          product.title.split('(').first.trim(),
           style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(
@@ -176,7 +238,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           style: theme.textTheme.bodyMedium,
         ),
         trailing: FilledButton(
-          onPressed: () => _subscribe(product),
+          onPressed: isProcessing ? null : () => _subscribe(product),
           style: FilledButton.styleFrom(
             backgroundColor: isMonthly ? theme.colorScheme.primary : Colors.green.shade700,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -190,7 +252,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               ),
               if (!isMonthly)
                 const Text(
-                  'SAVE 16%', // Placeholder for visual promotion
+                  'SAVE 16%',
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                 ),
             ],
@@ -202,12 +264,10 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
 
   Widget _buildFeatureComparison(BuildContext context) {
     final theme = Theme.of(context);
-
-    // Feature List based on your plan
     const features = [
       ('Cloud Backup & Sync', true, true),
-      ('Transactions/Orders', false, true), // False = Limited (50/month)
-      ('Products/Inventory', false, true), // False = Limited (20)
+      ('Transactions/Orders', false, true),
+      ('Products/Inventory', false, true),
       ('Advanced Analytics', false, true),
       ('Customer Hub (LTV)', false, true),
       ('Data Export (CSV)', false, true),

@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+// 1. ADDED: Provider to track if verification is currently running
+final isProcessingPurchaseProvider = StateProvider<bool>((ref) => false);
+
 final inAppBillingServiceProvider = Provider((ref) => InAppBillingService(ref));
 
 class InAppBillingService {
@@ -22,7 +25,10 @@ class InAppBillingService {
     _initIAPListener();
   }
 
-  // ➡️ Fetch live product details for the UI
+  Future<bool> isStoreAvailable() async {
+    return await _iap.isAvailable();
+  }
+
   Future<List<ProductDetails>> fetchProducts() async {
     final bool available = await _iap.isAvailable();
     if (!available) return [];
@@ -35,7 +41,6 @@ class InAppBillingService {
     return response.productDetails;
   }
 
-  // ➡️ Listen to the IAP Stream
   void _initIAPListener() {
     final purchaseStream = _iap.purchaseStream;
     _subscription = purchaseStream.listen(
@@ -54,6 +59,8 @@ class InAppBillingService {
       } else {
         if (purchase.status == PurchaseStatus.error) {
           debugPrint('Purchase Error: ${purchase.error!.message}');
+          // Ensure processing is released on error
+          _ref.read(isProcessingPurchaseProvider.notifier).state = false;
         } else if (purchase.status == PurchaseStatus.purchased ||
             purchase.status == PurchaseStatus.restored) {
           _verifyPurchaseOnServer(purchase);
@@ -69,6 +76,9 @@ class InAppBillingService {
 
   // ⚠️ CRITICAL STEP: Server-Side Validation
   void _verifyPurchaseOnServer(PurchaseDetails purchase) async {
+    // 2. SET STATE: Block the UI while verification is active
+    _ref.read(isProcessingPurchaseProvider.notifier).state = true;
+
     try {
       final String token = purchase.verificationData.serverVerificationData;
       final String source = Platform.isIOS ? 'app_store' : 'google_play';
@@ -84,11 +94,19 @@ class InAppBillingService {
     } catch (e) {
       // Log error to Crashlytics
       debugPrint('SERVER VALIDATION FAILED: $e');
+    } finally {
+      // 3. RELEASE STATE: Allow UI to either show 'Pro' or allow re-purchase on failure
+      _ref.read(isProcessingPurchaseProvider.notifier).state = false;
     }
   }
 
   // ➡️ Method to initiate the purchase
   Future<void> buySubscription(ProductDetails product) async {
+    // Ensure we aren't already processing another purchase
+    if (_ref.read(isProcessingPurchaseProvider)) {
+      debugPrint('Purchase already processing. Blocking buy.');
+      return;
+    }
     final PurchaseParam purchaseParam = PurchaseParam(productDetails: product);
     await _iap.buyNonConsumable(purchaseParam: purchaseParam);
   }

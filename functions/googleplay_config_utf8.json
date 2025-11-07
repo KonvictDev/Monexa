@@ -1,0 +1,17 @@
+﻿{
+  "google_play": {
+    "service_account_json": {
+      "type": "service_account",
+      "project_id": "monexa-4a222",
+      "private_key_id": "b05268fdec8b2488313b3df5f65b7d3732971d4c",
+      "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDXT7X/UlyljL4q\nhAMm9ov/tQB5jcJ/+9mSJWyWP3RbiWemiYfXglVKbv5rJxvgtDSfTW9SEcDjzgcV\nBnTnkjoYQcFEsVpgqoQm/7fxMLdfAYDosue08PKpD4Bn8N5EGlNNEgQa2/9pnaeG\nr5xoMAU9jNAZ/wZAUp5+ngsLSsJhP8H62s7H4YETUa9vZhwNksEYMKOLVVhEACRH\nysAN3m6kqDLxYGMGZA7aYrl3Y1qxamWvee1/gD8Ox9d7Dl5UbyaivLEJidAW9EBJ\neU4UxcygZH1Jkq9udwzuuWa9/Zx6ylLbmL5jldR58/PUsASrJyu78MVhUnYJwCRu\nCFZUmQtZAgMBAAECggEAAfsmxomgdpl76nI6gTJFiX3F2lh2kKzljJWxkRRWYr05\n6etcB5yYYk3xI1VByWh/D3Qr8QpexvnPUN81VigfRrfcKmCjXz5SZvV1YM+88C/Y\nWsvCnASXhvywhsRNlzzSxWPEC+c4S2V69B9Lhh3i/nT8OTECgrb/5FRZ76mpbjGe\npnlK+hvLwTnfoqB5G04vak7KH34h5yXpYBTGQ5q46iuiO/FAkuyK6rB2PFk/1B2t\nn7QC+CkrPCRr+wOa+yAnRnuE0oA3FLhaf8rOEPo0LPTrU9CNw8D1/t2KENkntCXz\nRB3f9FGLCbmVQUNfdPFmpLX/BRiVAM9rprRlnP3tAQKBgQD/E5E17X8B1z4Bi32S\nOjHguRyILUb0uaEkzJVmJmkd2r7B976+rnpGPfYs9QGeD21sGdSyoJZ9bVl0KWv2\ntA/jCIIYwxCrlVPrILcZvGHSwac9Jb8OVhw72M1Ovi93ztgZGvLFsbYvnZwSg3OR\nK22D0F/ZSNz3QDKlPwNV1+o2OQKBgQDYF0j7LURpktdz8JlDBVnHHS/xpGwLinMn\nZDgtKoq/NzYcq7u+lx7rUz3hf6DrLXKvIKBGQp9LDPyO3KLU2TQ3BU0lNyx6Sqz5\n0gXEW6wVZbQ26bbwWrM6cj7otdc/trTqVZp6he8zZMhiERNjqB4GHxbEkuWIYqIa\ng3u9Pnh+IQKBgF+l97qwHwMSslaj9udhWRi6cT+DMutLvGhvKsqONraSMxvLCcS4\n6nLygyBik0Ow50g0+3QsEaJg4b1UVv7AkICCzT35z4N30GsH7oEBCfGc2lhskhMP\nKTEr3/jaCjSz5Iate0G0nOuH/2FV130lOsDF31s8Hle8xAEA+wAyocnJAoGAd1BU\nEawq7AgSQogEd8cKjTCGemwI5E5rysJBal7lATOhAy+nmFKk1da+gjYQSgpsGlpv\nZJwAjFX9VXxpxBCyDfc1Y2kVe+ijncTjPkpHuADSAsgFJK1P7OOL7L4KvblKJ2Fg\nzGoLa1socU1wYURAX6zmy184sZeUXgNfXVyS90ECgYB/6BoM7NGWKx032/QHiSPD\nfu09vHZlx+IgUcr/5sv1dl4GpUGbhkeqbMEnJMO2x7qUNsvI5s4+Zu66wVeuyits\nVYn0//b7h2gZx3pxg1tDaouZN7KKVMhS/dGFRH7AST8plGRe20fiPGrb9CKh4iKX\n3Fbt90wGSaNCPfXitmIz5Q==\n-----END PRIVATE KEY-----\n",
+      "client_email": "monexa-purchase-verifier@monexa-4a222.iam.gserviceaccount.com",
+      "client_id": "113458294809499595184",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/monexa-purchase-verifier%40monexa-4a222.iam.gserviceaccount.com",
+      "universe_domain": "googleapis.com"
+    }
+  }
+}
