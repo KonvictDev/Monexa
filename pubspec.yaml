@@ -1,83 +1,126 @@
 name: billing
-description: "A new Flutter project."
+description: "A new Flutter project for managing billing and sales."
 publish_to: 'none'
 
-version: 1.0.0+2
+version: 1.0.0+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
 
 # ============================================================
-#                   APPLICATION DEPENDENCIES
+# 💻 RECOMMENDED DEVELOPMENT SETUP
+# ============================================================
+# ✅ Flutter SDK: 3.16.0 or newer (Dart 3.x supported)
+# ✅ Android: compileSdkVersion 34, minSdkVersion 21
+# ✅ iOS: platform :ios, '12.0' (set in ios/Podfile)
+# ✅ macOS/Linux/Web supported
+# ✅ Run: flutter clean && flutter pub get after modifying dependencies
+# ✅ For CI/CD (GitHub Actions, Codemagic, etc.)
+#    - Use stable channel
+#    - Cache ~/.pub-cache for faster builds
+# ============================================================
+
+# ============================================================
+# 📦 APPLICATION DEPENDENCIES
 # ============================================================
 dependencies:
   flutter:
     sdk: flutter
 
-  # --- Local database ---
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
+  # ------------------------------------------------------------
+  # 🗃️ Local Database / Offline Storage
+  # ------------------------------------------------------------
+  hive: ^2.2.3                  # Lightweight key-value local storage
+  hive_flutter: ^1.1.0          # Integrates Hive with Flutter lifecycle
 
-  # --- Firebase Core & Database ---
-  firebase_core: ^3.4.1
-  cloud_firestore: ^5.4.4
-  firebase_storage: ^12.3.3
-  firebase_auth: ^5.3.1
-  firebase_crashlytics: ^4.1.3
-  printing: ^5.14.2
-  share_plus: ^10.0.2
+  # ------------------------------------------------------------
+  # 🔥 Firebase Core & Services
+  # ------------------------------------------------------------
+  firebase_core: ^3.4.1         # Initializes Firebase for Flutter
+  cloud_firestore: ^5.4.4       # Cloud Firestore database access
+  firebase_storage: ^12.3.3     # Upload/download files from Firebase Storage
+  firebase_auth: ^5.3.1         # Firebase Authentication (email/phone/etc.)
+  firebase_crashlytics: ^4.1.3  # Crash reporting and analytics
+  cloud_functions: ^5.0.0       # Call backend serverless functions
 
+  # ------------------------------------------------------------
+  # 📄 File Operations / Printing / Sharing
+  # ------------------------------------------------------------
+  printing: ^5.14.2             # Print or preview PDFs directly
+  share_plus: ^10.0.2           # Share text, files, and links
+  pdf: ^3.8.1                   # Generate custom PDF invoices/reports
 
-  # --- File system access ---
-  path_provider: ^2.1.3
-  path: ^1.9.0
+  # ------------------------------------------------------------
+  # 📂 File System Access
+  # ------------------------------------------------------------
+  path_provider: ^2.1.3         # Access app directories (docs, temp, etc.)
+  path: ^1.9.0                  # File path manipulation utilities
 
-  # --- Charting / Data Visualization ---
-  fl_chart: ^0.68.0
+  # ------------------------------------------------------------
+  # 📊 Charts / Data Visualization
+  # ------------------------------------------------------------
+  fl_chart: ^0.68.0             # Interactive charts (bar, line, pie)
 
-  # --- Utility / Data formatting ---
-  intl: ^0.19.0
-  uuid: ^4.4.0
-  csv: ^6.0.0
-  image: ^4.5.4
-  pinput: ^5.0.2
-  url_launcher: ^6.3.2
-  webview_flutter: ^4.13.0
+  # ------------------------------------------------------------
+  # 🧮 Utilities / Data Formatting
+  # ------------------------------------------------------------
+  intl: ^0.19.0                 # Format dates, currencies, and numbers
+  uuid: ^4.4.0                  # Generate unique identifiers
+  csv: ^6.0.0                   # CSV parsing and export
+  image: ^4.5.4                 # Image processing and resizing
+  url_launcher: ^6.3.2          # Open external URLs, phone, or email apps
+  webview_flutter: ^4.13.0      # Embed web pages in Flutter UI
 
-  # --- State management & secure storage ---
-  flutter_riverpod: ^2.5.1
-  flutter_secure_storage: ^9.2.4
+  # ------------------------------------------------------------
+  # ⚙️ State Management & Secure Storage
+  # ------------------------------------------------------------
+  flutter_riverpod: ^2.5.1      # Modern, type-safe state management
+  flutter_secure_storage: ^9.2.4 # AES-encrypted key-value storage (tokens, etc.)
 
-  # --- Media & File operations ---
-  image_picker: ^1.1.2
-  pdf: ^3.8.1
+  # ------------------------------------------------------------
+  # 🖼️ Media & File Handling
+  # ------------------------------------------------------------
+  image_picker: ^1.1.2          # Capture/select images & videos
+  pinput: ^5.0.2                # OTP/PIN input widget with animations
 
-  in_app_purchase: ^3.2.3
-  package_info_plus: ^8.0.0
-  in_app_review: ^2.0.7
+  # ------------------------------------------------------------
+  # 💳 Payments & Reviews
+  # ------------------------------------------------------------
+  in_app_purchase: ^3.2.3       # In-app purchase integration
+  in_app_review: ^2.0.7         # Request user ratings/reviews
+  package_info_plus: ^8.0.0     # Get app name, version, package ID, etc.
 
-
-  cloud_functions: ^5.0.0  # For calling the server-side verification function
-  # --- App visuals & icons ---
-  cupertino_icons: ^1.0.2
+  # ------------------------------------------------------------
+  # 🎨 UI / Icons
+  # ------------------------------------------------------------
+  cupertino_icons: ^1.0.2       # Default iOS-style icons for Flutter
 
 # ============================================================
-#                   FLUTTER ICONS CONFIGURATION
+# 🧰 DEVELOPMENT DEPENDENCIES
 # ============================================================
 dev_dependencies:
   flutter_test:
-    sdk: flutter
+    sdk: flutter                # Flutter testing framework
 
-  # --- Hive model code generation ---
-  hive_generator: ^2.0.1
-  build_runner: ^2.4.10
+  # ------------------------------------------------------------
+  # 🐝 Hive Code Generation
+  # ------------------------------------------------------------
+  hive_generator: ^2.0.1        # Generates Hive adapters for data models
+  build_runner: ^2.4.10         # Tool for code generation (run: flutter pub run build_runner build)
 
-  # --- Linting / Code quality ---
-  flutter_lints: ^4.0.0
+  # ------------------------------------------------------------
+  # 🧹 Linting / Code Quality
+  # ------------------------------------------------------------
+  flutter_lints: ^4.0.0         # Recommended lints for cleaner Flutter code
 
-  # --- App icon generator ---
-  flutter_launcher_icons: ^0.13.1
+  # ------------------------------------------------------------
+  # 🖼️ App Icon Generator
+  # ------------------------------------------------------------
+  flutter_launcher_icons: ^0.13.1 # Generate platform app icons automatically
 
+# ============================================================
+# 🎨 APP ICONS CONFIGURATION
+# ============================================================
 flutter_icons:
   android: true
   ios: true
@@ -86,7 +129,7 @@ flutter_icons:
   adaptive_icon_foreground: "assets/icons/app_icon.png"
 
 # ============================================================
-#                   FLUTTER SETTINGS
+# 🧩 FLUTTER PROJECT SETTINGS
 # ============================================================
 flutter:
   uses-material-design: true

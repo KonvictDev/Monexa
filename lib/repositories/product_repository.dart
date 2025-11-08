@@ -1,11 +1,10 @@
-// lib/repositories/product_repository.dart
+// lib/repositories/product_repository.dart (MODIFIED - Gating and Limit Fix)
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../model/product.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../providers/subscription_provider.dart';
+import '../services/gating_service.dart'; // ➡️ Import Gating Service
 
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
   // ➡️ MODIFICATION 1: Pass Ref to the constructor.
@@ -14,13 +13,12 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
 
 class ProductRepository {
   final Box<Product> _productBox;
-  final Ref _ref; // ⬅️ NEW FIELD: Store the Riverpod Ref
+  final Ref _ref;
   final _uuid = const Uuid();
 
   // ➡️ MODIFICATION 2: Accept and store the Ref.
   ProductRepository(this._productBox, this._ref);
 
-  // 🛠️ FIX: Public getter to expose the Box for the sync/restore logic
   Box<Product> get productBox => _productBox;
 
   Future<void> addProduct({
@@ -28,18 +26,16 @@ class ProductRepository {
     required double price,
     required int quantity,
     required String description,
-    required String category, // <-- ADD THIS
+    required String category,
     required String imagePath,
     String? thumbnailPath,
   }) async {
-    // ➡️ MODIFICATION 3: Use the stored Ref to read the provider.
-    final isPro = _ref.read(isProProvider);
+    final gatingService = _ref.read(gatingServiceProvider);
 
-    // ➡️ LIMIT CHECK (Corrected)
-    if (!isPro) {
-      if (_productBox.length >= 20) {
-        throw Exception('Free plan limit (20 products) reached. Upgrade to Pro.');
-      }
+    // ➡️ LIMIT CHECK (Delegated to GatingService and Fixed)
+    if (!gatingService.canUseFeature(Feature.products, _productBox.length)) {
+      // ➡️ FIX: Message is now consistent with the intended 20-product limit
+      throw Exception('Product limit reached. Upgrade to Pro for unlimited products.');
     }
     // ⬅️ END LIMIT CHECK
 
@@ -48,7 +44,7 @@ class ProductRepository {
       name: name,
       price: price,
       description: description,
-      category: category, // <-- ADD THIS
+      category: category,
       imagePath: imagePath,
       quantity: quantity,
       thumbnailPath:thumbnailPath,

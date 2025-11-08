@@ -1,5 +1,3 @@
-// lib/model/user_profile.dart (CORRECTED)
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserProfile {
@@ -16,6 +14,8 @@ class UserProfile {
   final bool isPro;
   final DateTime? proExpiry;
   final bool isBlocked;
+  // ➡️ NEW FIELD: To store the SKU (e.g., 'monexa_pro_monthly')
+  final String? lastSubscriptionId;
 
   UserProfile({
     required this.uid,
@@ -29,6 +29,7 @@ class UserProfile {
     this.isPro = false,
     this.proExpiry,
     this.isBlocked = false,
+    this.lastSubscriptionId,
   });
 
   // To save to Firestore
@@ -43,7 +44,7 @@ class UserProfile {
       'businessAddress': businessAddress,
       'gstin': gstin,
       'lastUpdated': FieldValue.serverTimestamp(),
-      // isPro/isBlocked are typically managed by the server/Cloud Functions
+      'isBlocked':isBlocked,
     };
   }
 
@@ -66,6 +67,8 @@ class UserProfile {
 
       // Convert Firestore Timestamp to Dart DateTime (already safe with ?.)
       proExpiry: (json['proExpiry'] as Timestamp?)?.toDate(),
+
+      lastSubscriptionId: json['lastSubscriptionId'] as String?,
     );
   }
 }

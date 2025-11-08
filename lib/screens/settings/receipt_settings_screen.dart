@@ -1,9 +1,10 @@
-// lib/screens/settings/receipt_settings_screen.dart
+// lib/screens/settings/receipt_settings_screen.dart (MODIFIED - Gating Customization)
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../repositories/settings_repository.dart';
 import '../../utils/settings_utils.dart';
+import '../../services/gating_service.dart'; // ➡️ Import Gating Service
 
 class ReceiptSettingsScreen extends ConsumerStatefulWidget {
   const ReceiptSettingsScreen({super.key});
@@ -47,7 +48,20 @@ class _ReceiptSettingsScreenState
     super.dispose();
   }
 
+  void _showUpgradeModal() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Receipt Customization requires Monexa Pro.')),
+    );
+  }
+
+
   void _saveSettings() {
+    // ➡️ GATING CHECK
+    if (!ref.read(gatingServiceProvider).canAccessFeature(Feature.receiptCustomization)) {
+      _showUpgradeModal();
+      return;
+    }
+
     final settingsRepo = ref.read(settingsRepositoryProvider);
     settingsRepo.put('receiptFooter', _footerController.text);
     settingsRepo.put('receiptShowTaxId', _showTaxId);
@@ -164,7 +178,6 @@ class _ReceiptSettingsScreenState
                               const SizedBox(height: 15),
 
                               // --- 4. Totals (Right Aligned) ---
-                              // --- **** THIS IS THE FIX **** ---
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: Column(
@@ -188,8 +201,6 @@ class _ReceiptSettingsScreenState
                                   ],
                                 ),
                               ),
-
-                              // --- **** END FIX **** ---
 
                               const SizedBox(height: 24),
 
@@ -218,7 +229,6 @@ class _ReceiptSettingsScreenState
   }
 
   Widget _buildPreviewTableHeader({required TextStyle? style}) {
-    // ... (This method is unchanged) ...
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: Row(
@@ -241,7 +251,6 @@ class _ReceiptSettingsScreenState
     required String amount,
     required TextStyle? style,
   }) {
-    // ... (This method is unchanged) ...
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: Row(
@@ -256,8 +265,6 @@ class _ReceiptSettingsScreenState
     );
   }
 
-  // --- **** THIS IS THE FIX **** ---
-  // (Removed fixed width, using MainAxisSize.min and SizedBox)
   Widget _buildPreviewTotalRow(String title, String value, {TextStyle? style}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
@@ -272,11 +279,13 @@ class _ReceiptSettingsScreenState
     );
   }
 
-  // --- **** END FIX **** ---
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // ➡️ Read Gating Service
+    final canCustomize = ref.watch(gatingServiceProvider).canAccessFeature(Feature.receiptCustomization);
+
 
     return Scaffold(
       appBar: AppBar(
@@ -290,7 +299,7 @@ class _ReceiptSettingsScreenState
             onPressed: _showReceiptPreview,
           ),
           IconButton(
-            icon: const Icon(Icons.save_rounded),
+            icon: canCustomize ? const Icon(Icons.save_rounded) : const Icon(Icons.lock_outline), // ➡️ Visual indicator
             onPressed: _saveSettings,
           ),
         ],
@@ -314,7 +323,7 @@ class _ReceiptSettingsScreenState
                       'Displays your business tax number at the top (if provided).',
                     ),
                     value: _showTaxId,
-                    onChanged: (v) => setState(() => _showTaxId = v),
+                    onChanged: canCustomize ? (v) => setState(() => _showTaxId = v) : null, // ➡️ GATED
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
@@ -323,7 +332,7 @@ class _ReceiptSettingsScreenState
                       'Shows the discount line on receipts (if discount > 0).',
                     ),
                     value: _showDiscount,
-                    onChanged: (v) => setState(() => _showDiscount = v),
+                    onChanged: canCustomize ? (v) => setState(() => _showDiscount = v) : null, // ➡️ GATED
                   ),
                 ],
               ),
@@ -337,20 +346,23 @@ class _ReceiptSettingsScreenState
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: buildSettingsTextField(
-                  controller: _footerController,
-                  label: 'Custom Footer Message',
-                  icon: Icons.notes_rounded,
-                  maxLines: 3,
-                  onChanged: (_) => setState(() {}), // Rebuild preview on change
+                child: AbsorbPointer( // ➡️ Prevent input if locked
+                  absorbing: !canCustomize,
+                  child: buildSettingsTextField(
+                    controller: _footerController,
+                    label: 'Custom Footer Message',
+                    icon: Icons.notes_rounded,
+                    maxLines: 3,
+                    onChanged: canCustomize ? (_) => setState(() {}) : null, // Only rebuild/track if unlocked
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 40),
             Center(
               child: FilledButton.icon(
-                icon: const Icon(Icons.save_rounded),
-                label: const Text('Save Settings'),
+                icon: canCustomize ? const Icon(Icons.save_rounded) : const Icon(Icons.lock_outline),
+                label: Text(canCustomize ? 'Save Settings' : 'Pro Required'),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 32,

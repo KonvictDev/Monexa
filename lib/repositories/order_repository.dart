@@ -1,58 +1,51 @@
-// lib/repositories/order_repository.dart
+// lib/repositories/order_repository.dart (MODIFIED - Gating and Limit Fix)
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../model/order.dart';
-import '../providers/subscription_provider.dart';
+import '../services/gating_service.dart'; // ➡️ Import Gating Service
 
-// ➡️ MODIFICATION 1: Pass Ref to the constructor.
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {
-  // Pass the Ref here.
   return OrderRepository(Hive.box<Order>('orders'), ref);
 });
 
 class OrderRepository {
   final Box<Order> _orderBox;
-  final Ref _ref; // ⬅️ NEW FIELD: Store the Riverpod Ref
+  final Ref _ref;
 
-  // ➡️ MODIFICATION 2: Accept and store the Ref.
   OrderRepository(this._orderBox, this._ref);
 
-  // 🛠️ FIX: Public getter to expose the Box for the sync/restore logic
   Box<Order> get orderBox => _orderBox;
+
+  /// Helper to calculate the current month's order count
+  int _calculateMonthlyOrderCount() {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    return _orderBox.values.where((o) {
+      return o.orderDate.isAfter(startOfMonth);
+    }).length;
+  }
 
   /// Adds a new order to the box.
   Future<void> addOrder(Order order) async {
-    // ➡️ MODIFICATION 3: Use the stored Ref to read the provider.
-    final isPro = _ref.read(isProProvider);
+    final gatingService = _ref.read(gatingServiceProvider);
 
-    // ➡️ LIMIT CHECK (Simplified and Corrected)
-    if (!isPro) {
-      final monthlyOrders = _orderBox.values.where((o) {
-        final now = DateTime.now();
-        // Check orders from the beginning of the current month
-        final startOfMonth = DateTime(now.year, now.month, 1);
-        return o.orderDate.isAfter(startOfMonth);
-      }).length;
+    // ➡️ LIMIT CHECK (Delegated to GatingService and Fixed)
+    final monthlyOrders = _calculateMonthlyOrderCount();
 
-      if (monthlyOrders >= 50) {
-        throw Exception('Free plan limit (50 orders per month) reached. Upgrade to Pro.');
-      }
+    if (!gatingService.canUseFeature(Feature.orders, monthlyOrders)) {
+      // ➡️ FIX: Message is now consistent with the logic (30 orders)
+      throw Exception('Free plan limit (30 orders per month) reached. Upgrade to Pro.');
     }
     // ⬅️ END LIMIT CHECK
 
     await _orderBox.add(order);
   }
 
-  // ... (getOrdersInDateRange logic remains fine as it doesn't need Ref) ...
-  // No need for a separate monthly calculation method, the logic is in addOrder.
-
-  /// Deletes an order.
   Future<void> deleteOrder(Order order) async {
     await order.delete();
   }
 
-  /// Gets a list of all orders.
   List<Order> getAllOrders() {
     return _orderBox.values.toList();
   }
@@ -68,11 +61,10 @@ class OrderRepository {
   }
 
   List<Order> getOrdersByCustomerName(String customerName) {
-    // Note: This relies on exact string match, but Hive is fast.
     return _orderBox.values
         .where((order) => order.customerName.toLowerCase() == customerName.toLowerCase())
         .toList()
-      ..sort((a, b) => b.orderDate.compareTo(a.orderDate)); // Sort newest first
+      ..sort((a, b) => b.orderDate.compareTo(a.orderDate));
   }
 
   /// Searches orders by query (Invoice # or Customer Name) and optionally filters by date.

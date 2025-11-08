@@ -1,3 +1,4 @@
+// lib/screens/management/customer_list_screen.dart (MODIFIED - Gating Customer Management)
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -5,6 +6,7 @@ import '../../model/customer.dart';
 import '../../repositories/customer_repository.dart';
 import 'customer_edit_screen.dart';
 import 'customer_detail_screen.dart';
+import '../../services/gating_service.dart'; // ➡️ Import Gating Service
 
 class CustomerListScreen extends ConsumerStatefulWidget {
   const CustomerListScreen({super.key});
@@ -31,12 +33,10 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
     super.dispose();
   }
 
-  // MODIFIED: Now passes customer.key
   void _openCustomerDetail(Customer customer) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        // Pass the customer.key instead of the whole object
         builder: (_) => CustomerDetailScreen(customerKey: customer.key),
       ),
     );
@@ -62,6 +62,9 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
   @override
   Widget build(BuildContext context) {
     final customerRepo = ref.watch(customerRepositoryProvider);
+    // ➡️ Read Gating Service
+    final gatingService = ref.watch(gatingServiceProvider);
+    final canManage = gatingService.canAccessFeature(Feature.customerManagement);
 
     return Scaffold(
       appBar: AppBar(
@@ -163,9 +166,14 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openCustomerForm(),
-        label: const Text('Add Customer'),
-        icon: const Icon(Icons.person_add_alt_1_rounded),
+        onPressed: canManage ? () => _openCustomerForm() : null, // ➡️ GATED
+        label: Text(canManage ? 'Add Customer' : 'Pro Required'),
+        icon: canManage
+            ? const Icon(Icons.person_add_alt_1_rounded)
+            : const Icon(Icons.lock_outline),
+        backgroundColor: canManage
+            ? Theme.of(context).colorScheme.primary
+            : Colors.grey.shade400,
       ),
     );
   }

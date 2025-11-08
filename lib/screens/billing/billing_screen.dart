@@ -1,4 +1,5 @@
-// lib/screens/billing_screen.dart
+// lib/screens/billing_screen.dart (FINAL COMPLETE CODE - FIXED Error Display)
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,11 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../model/product.dart';
-import '../../model/order.dart';
 import '../../model/order_item.dart';
 
 import '../../providers/cart_provider.dart';
 import '../../providers/product_search_provider.dart';
+import '../../widgets/upgrade_snackbar.dart';
 import 'order_success_screen.dart';
 
 import '../../widgets/customer_selection_modal.dart';
@@ -55,10 +56,24 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     _showSnackbar('Cart cleared.');
   }
 
+// LOGICAL MODIFICATION to _showSnackbar in lib/screens/billing_screen.dart
+
   void _showSnackbar(String message) {
     if (mounted) {
+      // CRITICAL CHECK: If the message contains "limit" or "Upgrade", use the special widget
+      if (message.contains('limit') || message.contains('Upgrade')) {
+        showUpgradeSnackbar(context, message);
+        return;
+      }
+
+      // Generic error or success message handling
+      final isError = message.contains('Error');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: isError ? Theme.of(context).colorScheme.error : null,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -93,12 +108,6 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
               maximumSize: const Size(180, 100),
             ),
           ),
-          // --- 1. REMOVED CLEAR CART ICON BUTTON ---
-          // IconButton(
-          //   icon: const Icon(Icons.delete_sweep_outlined),
-          //   onPressed: _clearCart, // We'll call this from the modal now
-          // ),
-          // --- END REMOVAL ---
           const SizedBox(width: 8),
         ],
         bottom: PreferredSize(
@@ -396,8 +405,12 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                     onPressed: cart.finalTotal >= 0 && cart.subtotal > 0
                         ? () async {
                       Navigator.pop(context);
-                      final Order? newOrder =
-                      await cartNotifier.placeOrder();
+
+                      // Assuming placeOrder returns (Order?, String? errorMessage)
+                      final result = await cartNotifier.placeOrder();
+                      final newOrder = result.$1;
+                      final errorMessage = result.$2;
+
 
                       if (newOrder != null && context.mounted) {
                         Navigator.push(
@@ -408,8 +421,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                           ),
                         );
                       } else if (context.mounted) {
+                        // ➡️ CRITICAL FIX: Display the specific error message
                         _showSnackbar(
-                            'Error placing order. Please try again.');
+                            errorMessage ?? 'Error placing order. Please try again.');
                       }
                     }
                         : null,
@@ -428,7 +442,6 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
       },
     );
   }
-
 
 
   Widget _summaryTile(String title, String trailing, {Widget? leading}) {

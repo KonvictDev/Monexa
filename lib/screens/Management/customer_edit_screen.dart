@@ -1,8 +1,10 @@
+// lib/screens/management/customer_edit_screen.dart (MODIFIED - Gating and Tag Passing)
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../model/customer.dart';
 import '../../repositories/customer_repository.dart';
 import '../../utils/settings_utils.dart';
+import '../../services/gating_service.dart'; // ➡️ Import Gating Service
 
 class CustomerEditScreen extends ConsumerStatefulWidget {
   final Customer? customer;
@@ -19,9 +21,7 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
   late final TextEditingController _addressController;
-  // --- NEW TAG CONTROLLER ---
   late final TextEditingController _tagController;
-  // --- END NEW TAG CONTROLLER ---
 
   bool get _isEditing => widget.customer != null;
 
@@ -32,9 +32,7 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
     _phoneController = TextEditingController(text: widget.customer?.phoneNumber ?? '');
     _emailController = TextEditingController(text: widget.customer?.email ?? '');
     _addressController = TextEditingController(text: widget.customer?.address ?? '');
-    // --- INIT TAG CONTROLLER ---
     _tagController = TextEditingController(text: widget.customer?.tag ?? '');
-    // --- END INIT TAG CONTROLLER ---
   }
 
   @override
@@ -43,12 +41,24 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
     _phoneController.dispose();
     _emailController.dispose();
     _addressController.dispose();
-    _tagController.dispose(); // DISPOSE
+    _tagController.dispose();
     super.dispose();
+  }
+
+  void _showUpgradeModal(String action) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Customer $action requires Monexa Pro.')),
+    );
   }
 
   Future<void> _saveCustomer() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // ➡️ GATING CHECK: Creation is restricted
+    if (!_isEditing && !ref.read(gatingServiceProvider).canAccessFeature(Feature.customerManagement)) {
+      _showUpgradeModal('creation');
+      return;
+    }
 
     final repo = ref.read(customerRepositoryProvider);
 
@@ -60,7 +70,7 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
           ..phoneNumber = _phoneController.text
           ..email = _emailController.text
           ..address = _addressController.text
-          ..tag = _tagController.text; // SAVE TAG
+          ..tag = _tagController.text;
         await repo.updateCustomer(existing);
       } else {
         await repo.addCustomer(
@@ -68,11 +78,7 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
           phoneNumber: _phoneController.text,
           email: _emailController.text,
           address: _addressController.text,
-          // NEW CUSTOMER CREATION
-          // Note: AddCustomer in repo doesn't take tag, but we can update it or
-          // rely on the default empty string. For simplicity, let's update the
-          // repo's method signature next, but for now, rely on default:
-          // In a real project, we'd update `addCustomer` in the repo to accept `tag`.
+          tag: _tagController.text, // ➡️ PASS TAG
         );
       }
 
@@ -93,9 +99,16 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
       }
     }
   }
-  // ... (rest of the file is unchanged) ...
+
   void _deleteCustomer() {
     if (!_isEditing) return;
+
+    // ➡️ GATING CHECK: Deletion is restricted
+    if (!ref.read(gatingServiceProvider).canAccessFeature(Feature.customerManagement)) {
+      _showUpgradeModal('deletion');
+      return;
+    }
+
     showConfirmationDialog(
       context,
       title: 'Delete Customer?',
@@ -115,6 +128,9 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ➡️ GATING CHECK: Editing is implicitly gated by the save button now, but we grey out delete
+    final canManage = ref.read(gatingServiceProvider).canAccessFeature(Feature.customerManagement);
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Wrap(
@@ -182,7 +198,6 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // --- NEW TAG FIELD ---
                 TextFormField(
                   controller: _tagController,
                   decoration: const InputDecoration(
@@ -191,7 +206,6 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                // --- END NEW TAG FIELD ---
                 const SizedBox(height: 20),
 
                 // Save / Delete Buttons
@@ -200,20 +214,25 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
                     if (_isEditing)
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _deleteCustomer,
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: canManage ? _deleteCustomer : null,
+                          icon: Icon(Icons.delete_outline, color: canManage ? Colors.red : Colors.grey),
                           label: const Text('Delete'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
+                            foregroundColor: canManage ? Colors.red : Colors.grey,
+                            side: BorderSide(color: canManage ? Colors.red : Colors.grey.shade400),
                           ),
                         ),
                       ),
                     if (_isEditing) const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: _saveCustomer,
-                        icon: const Icon(Icons.save),
+                        // Save button is only enabled if: 1. Adding a new customer (gated above) or 2. Editing existing (and they can manage)
+                        onPressed: canManage ? _saveCustomer : null,
+                        icon: Icon(Icons.save, color: canManage ? Colors.white : Colors.grey.shade600),
                         label: Text(_isEditing ? 'Save Changes' : 'Add Customer'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: canManage ? Theme.of(context).colorScheme.primary : Colors.grey.shade400,
+                        ),
                       ),
                     ),
                   ],

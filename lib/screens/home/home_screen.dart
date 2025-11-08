@@ -1,18 +1,16 @@
+// lib/screens/home/home_screen.dart (MODIFIED - Gating Export)
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-
 import '../../providers/dashboard_provider.dart';
 import '../../services/csv_service.dart';
-
-// Modular widgets
+import '../../services/gating_service.dart'; // ➡️ Import Gating Service
 import '../../widgets/filter_bar.dart';
 import '../../widgets/metric_grid.dart';
 import '../../widgets/sales_chart.dart';
 import '../../widgets/summary_table.dart';
-
 import '../../utils/date_filter.dart';
-
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -23,9 +21,11 @@ class HomeScreen extends ConsumerWidget {
     final dashboard = ref.watch(dashboardProvider);
     final dashboardNotifier = ref.read(dashboardProvider.notifier);
     final theme = Theme.of(context);
+    // ➡️ Read Gating Service
+    final gatingService = ref.read(gatingServiceProvider);
+
 
     Future<void> _selectCustomDateRange(BuildContext context) async {
-      // ... (this method is unchanged) ...
       final DateTimeRange? picked = await showDateRangePicker(
         context: context,
         firstDate: DateTime(2000),
@@ -39,7 +39,13 @@ class HomeScreen extends ConsumerWidget {
     }
 
     Future<void> _exportData() async {
-      // ... (this method is unchanged) ...
+      // ➡️ GATING CHECK
+      if (!gatingService.canAccessFeature(Feature.dataExport)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Data Export requires Monexa Pro.')));
+        return;
+      }
+
       dashboardNotifier.setLoading(true);
       final csvService = CsvService();
 
@@ -105,7 +111,6 @@ class HomeScreen extends ConsumerWidget {
         title: const Text('Dashboard'),
         elevation: 0,
         actions: [
-          // ... (refresh button is unchanged) ...
           dashboard.isLoading
               ? const Padding(
             padding: EdgeInsets.all(16.0),
@@ -124,7 +129,7 @@ class HomeScreen extends ConsumerWidget {
       ),
       body: SingleChildScrollView(
         key: ValueKey(dashboard.selectedFilter),
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 80), // Reduced top padding
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 80),
         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,6 +144,8 @@ class HomeScreen extends ConsumerWidget {
                 endDate: dashboard.endDate,
                 onFilterChanged: (DateFilter newFilter) async {
                   if (newFilter == DateFilter.custom) {
+                    // Note: Date range filter capability is gated in ViewOrdersScreen,
+                    // but the dashboard still allows the picker to show for Pro users.
                     await _selectCustomDateRange(context);
                   } else {
                     dashboardNotifier.updateDateFilter(newFilter);

@@ -1,4 +1,4 @@
-// lib/screens/add_product_screen.dart
+// lib/screens/management/add_product_screen.dart (MODIFIED - Gating Category Customization)
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,9 +7,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
-
 import '../../repositories/product_repository.dart';
-import '../../repositories/settings_repository.dart'; // <-- ADD THIS
+import '../../repositories/settings_repository.dart';
+import '../../services/gating_service.dart'; // ➡️ Import Gating Service
 
 class AddProductScreen extends ConsumerStatefulWidget {
   const AddProductScreen({super.key});
@@ -28,10 +28,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   File? _image;
   bool _isSaving = false;
 
-  // --- NEW CATEGORY STATE ---
   late List<String> _categories;
   String? _selectedCategory;
-  // --- END NEW CATEGORY STATE ---
 
   @override
   void initState() {
@@ -45,7 +43,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     });
   }
 
-  // --- NEW METHOD ---
   Future<String?> _showAddCategoryDialog(BuildContext context) async {
     final controller = TextEditingController();
     return showDialog<String>(
@@ -73,11 +70,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       ),
     );
   }
-  // --- END NEW METHOD ---
-
 
   Future<void> _pickImage() async {
-    // ... (this method is unchanged) ...
     final picked = await _picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
       setState(() => _image = File(picked.path));
@@ -85,7 +79,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   }
 
   Future<File?> _createThumbnail(File originalImage) async {
-    // ... (this method is unchanged) ...
     try {
       final imageBytes = await originalImage.readAsBytes();
       img.Image? decodedImage = img.decodeImage(imageBytes);
@@ -111,7 +104,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       _desc.clear();
       _qty.clear();
       _image = null;
-      _selectedCategory = null; // <-- ADD THIS
+      _selectedCategory = null;
       FocusScope.of(context).unfocus();
     });
   }
@@ -127,17 +120,15 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     }
 
     if (_image == null) {
-      // ... (this check is unchanged) ...
+      // Image check...
     }
 
-    // --- ADD CATEGORY VALIDATION ---
     if (_selectedCategory == null || _selectedCategory!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a product category.')),
       );
       return;
     }
-    // --- END VALIDATION ---
 
     setState(() => _isSaving = true);
 
@@ -156,7 +147,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
         price: double.tryParse(_price.text) ?? 0.0,
         quantity: int.tryParse(_qty.text) ?? 0,
         description: _desc.text,
-        category: _selectedCategory!, // <-- ADD THIS
+        category: _selectedCategory!,
         imagePath: newImage.path,
         thumbnailPath: thumbnailPath,
       );
@@ -176,7 +167,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   }
 
   InputDecoration _modernInputDecoration(String label) {
-    // ... (this method is unchanged) ...
     final colorScheme = Theme.of(context).colorScheme;
     return InputDecoration(
       labelText: label,
@@ -199,6 +189,9 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    // ➡️ Read Gating Service
+    final canCustomizeCategory = ref.watch(gatingServiceProvider).canAccessFeature(Feature.categoryCustomization);
+
 
     return Scaffold(
       appBar: AppBar(
@@ -235,16 +228,30 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                         value: cat,
                         child: Text(cat),
                       )),
-                      const DropdownMenuItem(
-                        value: 'ADD_NEW',
-                        child: Row(
-                          children: [
-                            Icon(Icons.add, color: Colors.blue),
-                            SizedBox(width: 8),
-                            Text('Add new category'),
-                          ],
+                      // Conditionally show 'Add new category' based on plan
+                      if (canCustomizeCategory) // ➡️ GATED
+                        const DropdownMenuItem(
+                          value: 'ADD_NEW',
+                          child: Row(
+                            children: [
+                              Icon(Icons.add, color: Colors.blue),
+                              SizedBox(width: 8),
+                              Text('Add new category'),
+                            ],
+                          ),
+                        )
+                      else // ➡️ Display locked item
+                        const DropdownMenuItem(
+                          value: 'LOCKED',
+                          enabled: false,
+                          child: Row(
+                            children: [
+                              Icon(Icons.lock_outline, color: Colors.grey),
+                              SizedBox(width: 8),
+                              Text('Pro required to add category'),
+                            ],
+                          ),
                         ),
-                      ),
                     ],
                     onChanged: (value) async {
                       if (value == 'ADD_NEW') {
@@ -260,7 +267,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                         setState(() => _selectedCategory = value);
                       }
                     },
-                    validator: (value) => value == null || value.isEmpty
+                    validator: (value) => value == null || value.isEmpty || value == 'LOCKED'
                         ? 'Please select a category'
                         : null,
                   ),
@@ -294,7 +301,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   ),
                   const SizedBox(height: 16),
                   GestureDetector(
-                    // ... (this widget is unchanged) ...
                     onTap: _pickImage,
                     child: Container(
                       height: 180,

@@ -41,6 +41,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         email: _email.text.trim(),
         businessName: _businessName.text.trim(),
         businessAddress: _businessAddress.text.trim(),
+        isBlocked: false,
         gstin: _gstin.text.trim().isEmpty ? null : _gstin.text.trim(),
       );
 

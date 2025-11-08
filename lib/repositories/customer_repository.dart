@@ -1,11 +1,10 @@
-// lib/repositories/customer_repository.dart
+// lib/repositories/customer_repository.dart (MODIFIED - Added 'tag' parameter to addCustomer)
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../model/customer.dart';
 
-// 1. Create the provider
 final customerRepositoryProvider = Provider<CustomerRepository>((ref) {
   return CustomerRepository(Hive.box<Customer>('customers'));
 });
@@ -16,7 +15,6 @@ class CustomerRepository {
 
   CustomerRepository(this._customerBox);
 
-  // --- ADDED: Public getter for Firebase Sync Repository ---
   Box<Customer> get customerBox => _customerBox;
 
   /// Adds a new customer
@@ -25,6 +23,7 @@ class CustomerRepository {
     String phoneNumber = '',
     String email = '',
     String address = '',
+    String tag = '', // ➡️ ADDED: Tag parameter
   }) async {
     final newCustomer = Customer(
       id: _uuid.v4(),
@@ -32,7 +31,7 @@ class CustomerRepository {
       phoneNumber: phoneNumber,
       email: email,
       address: address,
-      // tag defaults to ''
+      tag: tag, // ➡️ ASSIGNED: New tag field
     );
     await _customerBox.put(newCustomer.id, newCustomer);
   }
@@ -73,15 +72,12 @@ class CustomerRepository {
   ValueListenable<Box<Customer>> getListenable() {
     return _customerBox.listenable();
   }
-  // --- NEW METHOD ---
+
   /// Gets the first [limit] customers from the box.
   List<Customer> getRecentCustomers({int limit = 30}) {
-    // We reverse the list to get the most recently added ones
-    // and then take the limit.
     final allCustomers = _customerBox.values.toList();
     return allCustomers.reversed.take(limit).toList();
   }
-  // --- END NEW METHOD ---
 
   /// Clears all customers
   Future<void> clearAll() async {

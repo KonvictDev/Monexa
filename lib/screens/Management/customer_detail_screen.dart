@@ -1,14 +1,15 @@
+// lib/screens/management/customer_detail_screen.dart (MODIFIED - Gating LTV Analytics and Edit)
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive_flutter/adapters.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../model/customer.dart';
 import '../../model/order.dart';
-import '../../model/order_item.dart'; // <-- Ensure OrderItem is available
 import '../../repositories/customer_repository.dart';
 import '../../repositories/order_repository.dart';
 import 'customer_edit_screen.dart';
+import '../../services/gating_service.dart'; // ➡️ Import Gating Service
 
 class CustomerDetailScreen extends ConsumerWidget {
   final dynamic customerKey;
@@ -160,6 +161,8 @@ class CustomerDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final customerRepo = ref.watch(customerRepositoryProvider);
+    // ➡️ Gating Check: Can the user edit customers?
+    final canEdit = ref.read(gatingServiceProvider).canAccessFeature(Feature.customerManagement);
 
     return ValueListenableBuilder(
       valueListenable: customerRepo.getListenable(),
@@ -181,9 +184,11 @@ class CustomerDetailScreen extends ConsumerWidget {
               centerTitle: true,
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  onPressed: () => _showEditSheet(context, currentCustomer),
-                  tooltip: 'Edit Customer',
+                  // ➡️ Gated Icon
+                  icon: canEdit ? const Icon(Icons.edit_outlined) : const Icon(Icons.lock_outline),
+                  // ➡️ Gated Action
+                  onPressed: canEdit ? () => _showEditSheet(context, currentCustomer) : null,
+                  tooltip: canEdit ? 'Edit Customer' : 'Pro Required to Edit',
                 ),
               ],
               bottom: const TabBar(
@@ -196,7 +201,6 @@ class CustomerDetailScreen extends ConsumerWidget {
             body: TabBarView(
               children: [
                 _CustomerProfileTab(customer: currentCustomer),
-                // Pass the modal function down to the Order History Tab
                 _CustomerOrderHistoryTab(
                   customer: currentCustomer,
                   onOrderTap: (order) => _showOrderDetails(context, order),
@@ -211,7 +215,7 @@ class CustomerDetailScreen extends ConsumerWidget {
 }
 
 // -------------------------------------------------------------------
-// Customer Profile Tab (UNCHANGED)
+// Customer Profile Tab (GATING APPLIED)
 // -------------------------------------------------------------------
 
 class _CustomerProfileTab extends ConsumerWidget {
@@ -236,16 +240,20 @@ class _CustomerProfileTab extends ConsumerWidget {
     final theme = Theme.of(context);
     final orderRepo = ref.watch(orderRepositoryProvider);
     final orders = orderRepo.getOrdersByCustomerName(customer.name);
+    // ➡️ Check LTV Gating
+    final canViewLTV = ref.watch(gatingServiceProvider).canAccessFeature(Feature.ltvAnalytics);
+
 
     final int transactionCount = orders.length;
     final double totalSpent = orders.fold(0.0, (sum, order) => sum + order.totalAmount);
-    final double averageOrderValue = transactionCount == 0 ? 0.0 : totalSpent / transactionCount;
-    final DateTime? lastOrderDate = orders.isNotEmpty ? orders.first.orderDate : null;
-    final String aovDisplay = NumberFormat.simpleCurrency(name: '₹').format(averageOrderValue);
-    final String lastOrderDisplay = lastOrderDate != null ? DateFormat.yMMMd().format(lastOrderDate) : 'N/A';
-    final String frequencyDisplay = transactionCount > 0
-        ? '${transactionCount} orders total'
-        : 'No history';
+
+    // ➡️ Gated Calculations
+    final double averageOrderValue = canViewLTV && transactionCount > 0 ? totalSpent / transactionCount : 0.0;
+    final DateTime? lastOrderDate = canViewLTV && orders.isNotEmpty ? orders.first.orderDate : null;
+
+    final String aovDisplay = canViewLTV ? NumberFormat.simpleCurrency(name: '₹').format(averageOrderValue) : 'Locked';
+    final String lastOrderDisplay = canViewLTV && lastOrderDate != null ? DateFormat.yMMMd().format(lastOrderDate) : 'Locked';
+    final String frequencyDisplay = canViewLTV ? '${transactionCount} orders total' : 'Locked';
 
 
     return SingleChildScrollView(
@@ -265,6 +273,10 @@ class _CustomerProfileTab extends ConsumerWidget {
             style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const Divider(),
+
+          if (!canViewLTV)
+            _ProAnalyticsLockedBanner(theme: theme), // ➡️ ADDED LOCK BANNER
+
           LayoutBuilder(
             builder: (context, constraints) {
               double cardWidth = (constraints.maxWidth - 16) / 2;
@@ -274,9 +286,9 @@ class _CustomerProfileTab extends ConsumerWidget {
                 runSpacing: 8,
                 alignment: WrapAlignment.start,
                 children: [
-                  _buildMetricCard(theme, 'Average Order Value', aovDisplay, Icons.payments_outlined, cardWidth),
-                  _buildMetricCard(theme, 'Last Order Date', lastOrderDisplay, Icons.calendar_today_outlined, cardWidth),
-                  _buildMetricCard(theme, 'Transaction Count', frequencyDisplay, Icons.shopping_bag_outlined, cardWidth),
+                  _buildMetricCard(theme, 'Average Order Value', aovDisplay, Icons.payments_outlined, cardWidth, isLocked: !canViewLTV),
+                  _buildMetricCard(theme, 'Last Order Date', lastOrderDisplay, Icons.calendar_today_outlined, cardWidth, isLocked: !canViewLTV),
+                  _buildMetricCard(theme, 'Transaction Count', frequencyDisplay, Icons.shopping_bag_outlined, cardWidth, isLocked: !canViewLTV),
                 ],
               );
             },
@@ -377,12 +389,14 @@ class _CustomerProfileTab extends ConsumerWidget {
     );
   }
 
+  // ➡️ MODIFIED: Added isLocked parameter
   Widget _buildMetricCard(
       ThemeData theme,
       String title,
       String value,
       IconData icon,
       double width,
+      {required bool isLocked} // ➡️ NEW PARAMETER
       ) {
     return SizedBox(
       width: width, // ✅ each card gets half the screen width
@@ -395,7 +409,8 @@ class _CustomerProfileTab extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min, // ✅ height = content height
             children: [
-              Icon(icon, size: 20, color: theme.colorScheme.secondary),
+              // ➡️ Use conditional color
+              Icon(icon, size: 20, color: isLocked ? theme.hintColor : theme.colorScheme.secondary),
               const SizedBox(height: 4),
               Text(
                 title,
@@ -408,6 +423,8 @@ class _CustomerProfileTab extends ConsumerWidget {
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
+                  // ➡️ Use conditional color
+                  color: isLocked ? theme.hintColor : theme.colorScheme.onSurface,
                 ),
               ),
             ],
@@ -416,8 +433,6 @@ class _CustomerProfileTab extends ConsumerWidget {
       ),
     );
   }
-
-
 
 
   Widget _buildDetailCard(ThemeData theme, {required String title, required String value, required IconData icon, bool isAddress = false}) {
@@ -477,6 +492,37 @@ class _CommsButton extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ➡️ NEW WIDGET: Pro Locked Banner
+class _ProAnalyticsLockedBanner extends StatelessWidget {
+  final ThemeData theme;
+  const _ProAnalyticsLockedBanner({required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lock_outline, color: theme.colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Monexa Pro required to view Customer Health Analytics.',
+              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

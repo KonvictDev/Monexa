@@ -1,9 +1,11 @@
+// lib/screens/management/view_orders_screen.dart (MODIFIED - Gating Advanced Filtering/History)
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/intl.dart';
 import '../../model/order.dart';
 import '../../repositories/order_repository.dart';
+import '../../services/gating_service.dart'; // ➡️ Import Gating Service
 
 // 1. Convert to ConsumerStatefulWidget
 class ViewOrdersScreen extends ConsumerStatefulWidget {
@@ -23,7 +25,6 @@ class _ViewOrdersScreenState extends ConsumerState<ViewOrdersScreen> {
   void initState() {
     super.initState();
     _searchController.addListener(() {
-      // Use ValueListenableBuilder's listener to rebuild, just set state
       setState(() {
         _searchQuery = _searchController.text;
       });
@@ -36,8 +37,21 @@ class _ViewOrdersScreenState extends ConsumerState<ViewOrdersScreen> {
     super.dispose();
   }
 
+  // ➡️ Helper to show Pro modal
+  void _showUpgradeModal() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Advanced filtering requires Monexa Pro.')),
+    );
+  }
+
   // 2. Add Date Range Picker
   Future<void> _selectDateRange() async {
+    // ➡️ GATING CHECK: Must be Pro to use the custom date range picker
+    if (!ref.read(gatingServiceProvider).canAccessFeature(Feature.advancedFiltering)) {
+      _showUpgradeModal();
+      return;
+    }
+
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
@@ -184,14 +198,80 @@ class _ViewOrdersScreenState extends ConsumerState<ViewOrdersScreen> {
     );
   }
 
+  // ➡️ Extracted List View for Clarity (Used below)
+  Widget _buildOrderListView(List<Order> orders, OrderRepository orderRepository, ColorScheme colorScheme) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      itemCount: orders.length,
+      itemBuilder: (context, i) {
+        final o = orders[i];
+        final itemSummary = o.items
+            .map((item) => '${item.name} ×${item.quantity}')
+            .join(', ');
+        final formattedDate =
+        DateFormat.yMMMd().add_jm().format(o.orderDate);
+
+        return Card(
+          elevation: 3,
+          margin: const EdgeInsets.only(bottom: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ListTile(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 8),
+            onTap: () => _showOrderDetails(context, o),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    o.customerName,
+                    style:
+                    const TextStyle(fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  o.invoiceNumber,
+                  style: TextStyle(
+                    color: colorScheme.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            subtitle: Text(
+              'Items: $itemSummary\nDate: $formattedDate\nTotal: ₹${o.totalAmount.toStringAsFixed(2)}',
+              style: TextStyle(color: colorScheme.outline),
+            ),
+            isThreeLine: true,
+            trailing: IconButton(
+              icon:
+              const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: () => orderRepository.deleteOrder(o),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final orderRepository = ref.watch(orderRepositoryProvider);
     final colorScheme = Theme.of(context).colorScheme;
-
-    // 5. Determine if filters are active
     final bool hasFilters =
         _searchQuery.isNotEmpty || _startDate != null || _endDate != null;
+    final gatingService = ref.read(gatingServiceProvider);
+    // ➡️ Get Pro status
+    final isPro = gatingService.isPro;
+
 
     return Scaffold(
       appBar: AppBar(
@@ -199,7 +279,6 @@ class _ViewOrdersScreenState extends ConsumerState<ViewOrdersScreen> {
         elevation: 0,
       ),
       body: Column(
-        // 6. Wrap in Column
         children: [
           // --- START FILTER BAR ---
           Padding(
@@ -209,6 +288,7 @@ class _ViewOrdersScreenState extends ConsumerState<ViewOrdersScreen> {
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
+                    // Search field remains usable for quick lookups
                     hintText: 'Search by Customer or Invoice #',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searchQuery.isNotEmpty
@@ -230,11 +310,14 @@ class _ViewOrdersScreenState extends ConsumerState<ViewOrdersScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
+                        // ➡️ Gated via _selectDateRange method call
                         onPressed: _selectDateRange,
-                        icon: const Icon(Icons.calendar_today_outlined),
+                        icon: isPro
+                            ? const Icon(Icons.calendar_today_outlined)
+                            : const Icon(Icons.lock_outline),
                         label: Text(
                           _startDate == null
-                              ? 'Filter by Date'
+                              ? (isPro ? 'Filter by Date' : 'Pro: Date Filter')
                               : '${DateFormat.yMd().format(_startDate!)} - ${DateFormat.yMd().format(_endDate!)}',
                         ),
                         style: OutlinedButton.styleFrom(
@@ -262,89 +345,69 @@ class _ViewOrdersScreenState extends ConsumerState<ViewOrdersScreen> {
 
           // --- START ORDER LIST ---
           Expanded(
-            // 7. Make ListView expanded
             child: ValueListenableBuilder(
               valueListenable: orderRepository.getListenable(),
               builder: (context, Box<Order> box, _) {
-                // 8. Call new repository method
+                // ➡️ FILTER GATING LOGIC
+                final isAdvancedFilterActive = _startDate != null || _endDate != null;
+                DateTime? filteredStartDate = _startDate;
+                DateTime? filteredEndDate = _endDate;
+
+                // If not Pro, and no manual filter is set, enforce last 30 days
+                if (!isPro && !isAdvancedFilterActive) {
+                  final today = DateTime.now();
+                  // Start date is 30 days ago
+                  filteredStartDate = DateTime(today.year, today.month, today.day).subtract(const Duration(days: 30));
+                  // End date is today, end of day
+                  filteredEndDate = DateTime(today.year, today.month, today.day, 23, 59, 59);
+                }
+
+
                 final orders = orderRepository.searchAndFilterOrders(
                   query: _searchQuery,
-                  startDate: _startDate,
-                  endDate: _endDate,
+                  // Use restricted dates if needed
+                  startDate: filteredStartDate,
+                  endDate: filteredEndDate,
                 );
 
                 if (orders.isEmpty) {
                   return Center(
                     child: Text(
-                      hasFilters
-                          ? 'No orders match your filters.'
+                      hasFilters || !isPro
+                          ? 'No orders match your filters or are in the last 30 days (Pro Required).'
                           : 'No orders yet.',
                       style: const TextStyle(fontSize: 16),
+                      textAlign: TextAlign.center,
                     ),
                   );
                 }
 
-                return ListView.builder(
-                  padding:
-                  const EdgeInsets.fromLTRB(16, 0, 16, 16), // Adjust padding
-                  itemCount: orders.length,
-                  itemBuilder: (context, i) {
-                    final o = orders[i]; // Use the filtered list
-
-                    final itemSummary = o.items
-                        .map((item) => '${item.name} ×${item.quantity}')
-                        .join(', ');
-                    final formattedDate =
-                    DateFormat.yMMMd().add_jm().format(o.orderDate);
-
-                    return Card(
-                      elevation: 3,
-                      margin: const EdgeInsets.only(bottom: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        onTap: () => _showOrderDetails(context, o),
-                        title: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // ➡️ Show Gated Banner for Historical Data
+                if (!isPro && !isAdvancedFilterActive) {
+                  return Column(
+                    children: [
+                      Container(
+                        color: Colors.orange.shade50,
+                        padding: const EdgeInsets.all(8),
+                        child: Row(
                           children: [
+                            Icon(Icons.lock_outline, color: Colors.orange.shade700, size: 20),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                o.customerName,
-                                style:
-                                const TextStyle(fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Text(
-                              o.invoiceNumber,
-                              style: TextStyle(
-                                color: colorScheme.primary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                                "Showing only the last 30 days of orders. Upgrade to Pro for full history.",
+                                style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ],
                         ),
-                        subtitle: Text(
-                          'Items: $itemSummary\nDate: $formattedDate\nTotal: ₹${o.totalAmount.toStringAsFixed(2)}',
-                          style: TextStyle(color: colorScheme.outline),
-                        ),
-                        isThreeLine: true,
-                        trailing: IconButton(
-                          icon:
-                          const Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: () => orderRepository.deleteOrder(o),
-                        ),
                       ),
-                    );
-                  },
-                );
+                      Expanded(child: _buildOrderListView(orders, orderRepository, colorScheme)),
+                    ],
+                  );
+                }
+
+                return _buildOrderListView(orders, orderRepository, colorScheme);
               },
             ),
           ),

@@ -135,8 +135,8 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Order?> placeOrder() async {
-    if (_cart.isEmpty) return null;
+  Future<(Order?,String?)> placeOrder() async {
+    if (_cart.isEmpty) return(null, null);
 
     try {
       // 1. GENERATE THE SEQUENTIAL INVOICE NUMBER
@@ -178,10 +178,10 @@ class CartProvider with ChangeNotifier {
       clearCart();
 // ➡️ Trigger review flow after a successful order
       _ref.read(reviewServiceProvider).triggerReviewFlow();
-      return newOrder;
+      return (newOrder, null);
     } catch (e) {
       debugPrint('Error placing order: $e');
-      return null;
+      return (null, e.toString());
     }
   }
 }
