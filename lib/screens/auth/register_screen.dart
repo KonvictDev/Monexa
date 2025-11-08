@@ -214,7 +214,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 class _SmoothScrollBehavior extends ScrollBehavior {
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) {
-    // Use bouncy scroll on all platforms for consistency
+    // Use bouncy scroll on all plat  forms for consistency
     return const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
   }
 
