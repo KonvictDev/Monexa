@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../model/order.dart';
-import '../services/gating_service.dart'; // ➡️ Import Gating Service
+import '../services/gating_service.dart';
+import '../services/remote_config_service.dart';
+import '../utils/date_filter.dart'; // ➡️ Import Gating Service
 
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {
   return OrderRepository(Hive.box<Order>('orders'), ref);
@@ -29,13 +31,14 @@ class OrderRepository {
   /// Adds a new order to the box.
   Future<void> addOrder(Order order) async {
     final gatingService = _ref.read(gatingServiceProvider);
+    final remoteConfig = _ref.read(remoteConfigServiceProvider);
 
     // ➡️ LIMIT CHECK (Delegated to GatingService and Fixed)
     final monthlyOrders = _calculateMonthlyOrderCount();
 
     if (!gatingService.canUseFeature(Feature.orders, monthlyOrders)) {
       // ➡️ FIX: Message is now consistent with the logic (30 orders)
-      throw Exception('Free plan limit (30 orders per month) reached. Upgrade to Pro.');
+      throw Exception('Free plan limit (${remoteConfig.freeOrderLimit} orders per month) reached. Upgrade to Pro.');
     }
     // ⬅️ END LIMIT CHECK
 

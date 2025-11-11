@@ -1,13 +1,19 @@
-// lib/screens/management_screen.dart
-import 'package:flutter/material.dart';
-import 'add_product_screen.dart';
-import 'expense_screen.dart';
-import 'update_stocks_screen.dart';
-import 'view_orders_screen.dart';
-import 'customer_list_screen.dart';
+// ManagementScreen.dart
 
-class ManagementScreen extends StatelessWidget {
-  const ManagementScreen({super.key});
+import 'package:billing/screens/Management/update_stocks_screen.dart';
+import 'package:billing/screens/Management/view_orders_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:billing/repositories/settings_repository.dart';
+
+import '../../main_navigation_screen.dart';
+import 'add_product_screen.dart';
+import 'customer_list_screen.dart';
+import 'expense_screen.dart';
+
+class ManagementHubScreen extends ConsumerWidget {
+  ManagementHubScreen({super.key});
 
   void _navigateTo(BuildContext context, Widget screen) {
     Navigator.push(
@@ -16,9 +22,16 @@ class ManagementScreen extends StatelessWidget {
     );
   }
 
+  // Removed _checkAndStartShowcase method
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    // Removed keys variable
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Removed showcase start logic
+    });
 
     final items = [
       _MenuItem(
@@ -26,6 +39,7 @@ class ManagementScreen extends StatelessWidget {
         icon: Icons.add_box_rounded,
         color: Colors.blue,
         screen: const AddProductScreen(),
+        // Removed key
       ),
       _MenuItem(
         title: 'Manage Stock',
@@ -87,12 +101,14 @@ class _MenuItem {
   final IconData icon;
   final Color color;
   final Widget screen;
+  final GlobalKey? key; // Kept as optional, but unused
 
   const _MenuItem({
     required this.title,
     required this.icon,
     required this.color,
     required this.screen,
+    this.key,
   });
 }
 
@@ -116,13 +132,16 @@ class _ManagementCardState extends State<_ManagementCard>
   double _scale = 1.0;
 
   void _onTapDown(_) => setState(() => _scale = 0.97);
-  void _onTapUp(_) => setState(() => _scale = 1.0);
+  void _onTapUp(_) {
+    setState(() => _scale = 1.0);
+    HapticFeedback.lightImpact();
+  }
 
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
 
-    return GestureDetector(
+    Widget cardContent = GestureDetector(
       onTap: widget.onTap,
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,
@@ -181,5 +200,8 @@ class _ManagementCardState extends State<_ManagementCard>
         ),
       ),
     );
+
+    // Removed Showcase widget wrapper
+    return cardContent;
   }
 }

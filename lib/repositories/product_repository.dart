@@ -4,7 +4,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../model/product.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/gating_service.dart'; // ➡️ Import Gating Service
+import '../services/gating_service.dart';
+import '../services/remote_config_service.dart';
+import '../utils/date_filter.dart'; // ➡️ Import Gating Service
 
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
   // ➡️ MODIFICATION 1: Pass Ref to the constructor.
@@ -31,11 +33,12 @@ class ProductRepository {
     String? thumbnailPath,
   }) async {
     final gatingService = _ref.read(gatingServiceProvider);
+    final remoteConfig = _ref.read(remoteConfigServiceProvider);
 
     // ➡️ LIMIT CHECK (Delegated to GatingService and Fixed)
     if (!gatingService.canUseFeature(Feature.products, _productBox.length)) {
       // ➡️ FIX: Message is now consistent with the intended 20-product limit
-      throw Exception('Product limit reached. Upgrade to Pro for unlimited products.');
+      throw Exception('Product limit reached. Free plan limit (${remoteConfig.freeProductLimit} products) reached. Upgrade to Pro for unlimited products.');
     }
     // ⬅️ END LIMIT CHECK
 

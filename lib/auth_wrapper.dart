@@ -52,5 +52,4 @@ class AuthWrapper extends ConsumerWidget {
     }
   }
 
-// ❌ _isUpdateRequired method is removed from here
 }

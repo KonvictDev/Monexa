@@ -1,9 +1,7 @@
-// lib/providers/subscription_provider.dart
+// lib/providers/user_profile_providers.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import '../repositories/auth_repository.dart';
-import '../repositories/settings_repository.dart';
 
 // 1. Fetch the user's latest UserProfile document snapshots (Stream)
 final userProfileStreamProvider = StreamProvider((ref) {
@@ -17,7 +15,6 @@ final userProfileStreamProvider = StreamProvider((ref) {
 
   // Return the stream of snapshots mapped to UserProfile
   return firestore.collection('users').doc(uid).snapshots().map((doc) {
-    // This relies on authRepo.mapUserProfile being robust (see AuthRepository fix)
     return authRepo.mapUserProfile(doc);
   });
 });
@@ -38,25 +35,4 @@ final isProProvider = Provider<bool>((ref) {
   final bool isExpired = profile.proExpiry != null && profile.proExpiry!.isBefore(DateTime.now());
 
   return profile.isPro && !isExpired;
-});
-
-// 3. Expose the user's blocking status
-final isBlockedProvider = Provider<bool>((ref) {
-  final profileAsync = ref.watch(userProfileStreamProvider);
-
-  // CRITICAL OFFLINE FALLBACK:
-  // Read the local block status from Hive's settings box as a fallback/initial check
-  final settingsRepo = ref.read(settingsRepositoryProvider);
-  final isLocalBlocked = settingsRepo.get('isUserBlocked', defaultValue: false);
-
-  // ⚠️ FIX: If loading or error, fall back to the local blocked status.
-  if (profileAsync.hasError || !profileAsync.hasValue) {
-    return isLocalBlocked;
-  }
-
-  // Use the resolved value
-  final profile = profileAsync.value;
-
-  // Prioritize the live Firestore status if available, otherwise use the local state
-  return profile?.isBlocked ?? isLocalBlocked;
 });

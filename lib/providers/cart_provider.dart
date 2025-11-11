@@ -4,13 +4,12 @@ import 'package:uuid/uuid.dart';
 import '../model/order.dart';
 import '../model/order_item.dart';
 import '../model/product.dart';
-import '../screens/billing/billing_screen.dart'; // We need this for the PaymentOption enum
-
 // 1. IMPORT THE REPOSITORIES
 import '../repositories/product_repository.dart';
 import '../repositories/order_repository.dart';
 import '../repositories/settings_repository.dart';
 import '../services/review_service.dart';
+import '../utils/date_filter.dart';
 
 // 2. MODIFY THE PROVIDER DEFINITION
 // We now pass the `ref` to the CartProvider's constructor.

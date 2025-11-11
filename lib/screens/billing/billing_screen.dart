@@ -1,22 +1,24 @@
-// lib/screens/billing_screen.dart (FINAL COMPLETE CODE - FIXED Error Display)
+// BillingScreen.dart
 
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+// Removed showcaseview import
 
+import '../../main_navigation_screen.dart';
 import '../../model/product.dart';
 import '../../model/order_item.dart';
 
 import '../../providers/cart_provider.dart';
 import '../../providers/product_search_provider.dart';
+import '../../repositories/settings_repository.dart';
+import '../../utils/date_filter.dart';
 import '../../widgets/upgrade_snackbar.dart';
-import 'order_success_screen.dart';
 
 import '../../widgets/customer_selection_modal.dart';
-
-enum PaymentOption { cash, online }
+import 'order_success_screen.dart';
 
 class BillingScreen extends ConsumerStatefulWidget {
   const BillingScreen({super.key});
@@ -27,13 +29,17 @@ class BillingScreen extends ConsumerStatefulWidget {
 
 class _BillingScreenState extends ConsumerState<BillingScreen> {
   final _searchController = TextEditingController();
+  // Removed _keys initialization
+  // late final ShowcaseKeys _keys;
 
   @override
   void initState() {
     super.initState();
+    // _keys = ref.read(showcaseKeysProvider); // Removed
     _searchController.addListener(() {
       ref.read(productSearchProvider.notifier).filterProducts(_searchController.text);
     });
+    // Removed showcase check in addPostFrameCallback
   }
 
   @override
@@ -42,12 +48,15 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     super.dispose();
   }
 
+  // Removed _checkAndStartShowcase method
+
   void _addToCart(Product product) {
     HapticFeedback.lightImpact();
     final error = ref.read(cartProvider.notifier).addToCart(product);
     if (error != null) {
       _showSnackbar(error);
     }
+    // Removed showcase flow completion logic
   }
 
   void _clearCart() {
@@ -56,17 +65,13 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     _showSnackbar('Cart cleared.');
   }
 
-// LOGICAL MODIFICATION to _showSnackbar in lib/screens/billing_screen.dart
-
   void _showSnackbar(String message) {
     if (mounted) {
-      // CRITICAL CHECK: If the message contains "limit" or "Upgrade", use the special widget
       if (message.contains('limit') || message.contains('Upgrade')) {
         showUpgradeSnackbar(context, message);
         return;
       }
 
-      // Generic error or success message handling
       final isError = message.contains('Error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -182,11 +187,13 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
         total: cart.finalTotal,
         onCheckout: () => _showCartDialog(context),
         onViewCart: () => _showCartDialog(context),
+        // checkoutKey: _keys.checkoutButtonKey, // Removed
+        // onShowcaseComplete: () {}, // Removed
       ),
     );
   }
 
-  void _showCartDialog(BuildContext context) {
+  void _showCartDialog(BuildContext context, {bool startShowcase = false}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -201,6 +208,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
           builder: (BuildContext context, WidgetRef ref, Widget? child) {
             final cart = ref.watch(cartProvider);
             final cartNotifier = ref.read(cartProvider.notifier);
+            final settingsRepo = ref.read(settingsRepositoryProvider);
+
+            // Removed Showcase 5 check and start logic
 
             return Padding(
               padding: EdgeInsets.only(
@@ -212,7 +222,6 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // ─── Header ────────────────────────────────
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -242,7 +251,6 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                   const SizedBox(height: 8),
                   Divider(color: Theme.of(context).colorScheme.outlineVariant),
 
-                  // ─── Cart List ─────────────────────────────
                   if (cart.cart.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 32),
@@ -272,7 +280,6 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                     Flexible(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
-                          // 👇 Limit max height for scrollable list
                           maxHeight: MediaQuery.of(context).size.height * 0.5,
                         ),
                         child: ListView.separated(
@@ -313,7 +320,6 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                                     if (item.quantity > 1) {
                                       cartNotifier.updateItemQuantity(index, item.quantity - 1);
                                     } else {
-                                      // 👇 If only 1 left, remove from cart
                                       cartNotifier.removeFromCart(index);
                                       _showSnackbar('${item.name} removed from cart.');
                                     }
@@ -364,7 +370,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
 
                   Divider(color: Theme.of(context).colorScheme.outlineVariant),
 
-                  // ─── Summary Section ──────────────────────────
+                  // ... (Summary Section remains the same)
                   _summaryTile(
                       'Subtotal', '₹${cart.subtotal.toStringAsFixed(2)}'),
                   _summaryTile(
@@ -397,7 +403,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                     ),
                   ),
 
+
                   // ─── Checkout Button ───────────────────────────
+                  // Removed Showcase wrapper
                   FilledButton.icon(
                     icon: const Icon(Icons.payment_rounded),
                     label: Text(
@@ -406,7 +414,6 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                         ? () async {
                       Navigator.pop(context);
 
-                      // Assuming placeOrder returns (Order?, String? errorMessage)
                       final result = await cartNotifier.placeOrder();
                       final newOrder = result.$1;
                       final errorMessage = result.$2;
@@ -421,7 +428,6 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                           ),
                         );
                       } else if (context.mounted) {
-                        // ➡️ CRITICAL FIX: Display the specific error message
                         _showSnackbar(
                             errorMessage ?? 'Error placing order. Please try again.');
                       }
@@ -443,10 +449,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     );
   }
 
-
   Widget _summaryTile(String title, String trailing, {Widget? leading}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2), // fine-tuned spacing
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -519,32 +524,27 @@ class _ProductTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool outOfStock = product.quantity <= 0;
-
-    // --- 1. DETERMINE WHICH IMAGE PATH TO USE ---
-    String? imagePathToShow = product.thumbnailPath; // Prefer thumbnail
+    String? imagePathToShow = product.thumbnailPath;
     File? imageFile;
 
-    // Check if thumbnail exists
     if (imagePathToShow != null && imagePathToShow.isNotEmpty) {
       final file = File(imagePathToShow);
       if (file.existsSync()) {
         imageFile = file;
       } else {
-        imagePathToShow = null; // Thumbnail file missing, try original
+        imagePathToShow = null;
       }
     }
 
-    // If no valid thumbnail, try the original image
     if (imageFile == null && product.imagePath.isNotEmpty) {
       final file = File(product.imagePath);
       if (file.existsSync()) {
         imageFile = file;
-        imagePathToShow = product.imagePath; // Update path for consistency
+        imagePathToShow = product.imagePath;
       } else {
-        imagePathToShow = null; // Original also missing
+        imagePathToShow = null;
       }
     }
-    // --- END IMAGE LOGIC ---
 
     return InkWell(
       onTap: outOfStock ? null : onTap,
@@ -563,26 +563,22 @@ class _ProductTile extends StatelessWidget {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // --- 2. USE THE DETERMINED IMAGE FILE ---
                       imageFile != null
                           ? ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: Image.file(
-                          imageFile, // Use the File object
+                          imageFile,
                           fit: BoxFit.cover,
-                          // Add error builder for robustness
                           errorBuilder: (context, error, stackTrace) {
-                            return Icon(Icons.broken_image, size: 50, color: Colors.grey);
+                            return const Icon(Icons.broken_image, size: 50, color: Colors.grey);
                           },
                         ),
                       )
-                          : Icon(Icons.bakery_dining_rounded, // Fallback icon
+                          : Icon(Icons.bakery_dining_rounded,
                           size: 50,
                           color: outOfStock
                               ? Colors.grey
                               : Theme.of(context).colorScheme.primary),
-                      // --- END IMAGE UPDATE ---
-
                       if (outOfStock)
                         Container(
                           decoration: BoxDecoration(
@@ -641,12 +637,16 @@ class _CartFooter extends StatelessWidget {
   final double total;
   final VoidCallback onCheckout;
   final VoidCallback onViewCart;
+  // Removed keys
+  // final GlobalKey checkoutKey;
+  // final VoidCallback onShowcaseComplete;
 
   const _CartFooter({
     required this.cart,
     required this.total,
     required this.onCheckout,
     required this.onViewCart,
+    // Removed keys
   });
 
   int get totalItems => cart.fold(0, (sum, item) => sum + item.quantity);
@@ -683,6 +683,7 @@ class _CartFooter extends StatelessWidget {
           const SizedBox(width: 16),
           Expanded(
             flex: 3,
+            // Removed Showcase wrapper
             child: ElevatedButton.icon(
               onPressed: cart.isEmpty ? null : onCheckout,
               icon: const Text('Checkout', style: TextStyle(fontSize: 18)),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:billing/services/remote_config_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,6 +38,9 @@ Future<void> main() async {
       };
     }
     // --- End Crashlytics Setup ---
+
+// 🚀 NEW: Initialize and fetch Firebase Remote Config
+    await setupRemoteConfig();
 
     // --- Hive Initialization ---
     await Hive.initFlutter();

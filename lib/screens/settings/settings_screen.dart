@@ -30,7 +30,7 @@ import '../../repositories/firebase_sync_repository.dart';
 import '../../repositories/auth_repository.dart';
 import 'package:billing/providers/pin_auth_provider.dart';
 import 'package:billing/auth_wrapper.dart';
-import '../../providers/subscription_provider.dart'; // ⬅️ REQUIRED SUBSCRIPTION IMPORT
+import '../../providers/user_profile_providers.dart'; // ⬅️ REQUIRED SUBSCRIPTION IMPORT
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});

@@ -1,21 +1,30 @@
+// MainNavigationScreen.dart
+
 import 'package:billing/screens/Management/ManagementScreen.dart';
 import 'package:billing/screens/billing/billing_screen.dart';
 import 'package:billing/screens/home/home_screen.dart';
+import 'package:billing/screens/settings/settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui'; // 💡 REQUIRED FOR ImageFilter.blur
-import 'screens/settings/settings_screen.dart';
+import 'dart:ui';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:billing/repositories/settings_repository.dart';
 
-class MainNavigationScreen extends StatefulWidget {
+// Removed ShowcaseKeys class and provider
+
+class MainNavigationScreen extends ConsumerStatefulWidget {
   const MainNavigationScreen({super.key});
 
   @override
-  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+  ConsumerState<MainNavigationScreen> createState() =>
+      _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen>
+class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
+
+  // Removed ShowcaseKeys fields
 
   final List<String> _tabLabels = const [
     'Home',
@@ -24,10 +33,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     'Settings',
   ];
 
-  final List<Widget> _pages = const [
-    HomeScreen(),
-    ManagementScreen(),
-    SettingsScreen(),
+  final List<Widget> _pages = [
+    const HomeScreen(),
+    ManagementHubScreen(),
+    const SettingsScreen(),
   ];
 
   final List<List<IconData>> _icons = const [
@@ -37,35 +46,39 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     [Icons.person_outline_rounded, Icons.person_rounded],
   ];
 
-  // Maps the 4 navigation bar indices (0, 1, 2, 3) to the 3 page indices (0, 1, 2)
   final Map<int, int> _tabIndexToPageIndex = const {
-    0: 0, // Home -> HomeScreen
-    1: 1, // Manage -> ManagementScreen
-    3: 2, // Settings -> SettingsScreen (Index 2 in _pages)
+    0: 0,
+    1: 1,
+    3: 2,
   };
+
+  @override
+  void initState() {
+    super.initState();
+    // Removed showcase initialization and start logic
+  }
 
   void _onItemTapped(int index) {
     HapticFeedback.selectionClick();
 
-    // Index 2 is the 'New Order' button, which pushes a new route
     if (index == 2) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const BillingScreen()),
       );
     } else {
-      // Update the selected tab index for view switching
       setState(() => _selectedIndex = index);
     }
   }
 
+  // Removed _checkAndStartShowcase and _onShowcaseFinish methods
+
   @override
   Widget build(BuildContext context) {
-    // Determine which page to show in the IndexedStack
+    // Removed ShowCaseWidget wrapper
     final int pageIndex = _tabIndexToPageIndex[_selectedIndex]!;
 
     return Scaffold(
-      // MUST be true for the body content to show behind the floating nav bar
       extendBody: true,
       body: IndexedStack(
         index: pageIndex,
@@ -76,48 +89,42 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
         onItemTapped: _onItemTapped,
         icons: _icons,
         labels: _tabLabels,
+        // Removed keys parameter
       ),
     );
   }
 }
 
-// ===================================================
-// UPDATED: _PillBottomNavBar with BackdropFilter
-// ===================================================
-
-class _PillBottomNavBar extends StatelessWidget {
+class _PillBottomNavBar extends ConsumerWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
   final List<List<IconData>> icons;
   final List<String> labels;
+  // Removed keys field
 
   const _PillBottomNavBar({
     required this.selectedIndex,
     required this.onItemTapped,
     required this.icons,
     required this.labels,
+    // Removed keys requirement
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    // Removed isShowcaseActive check
 
     return SafeArea(
       child: Container(
-        // Wide Pill: Reduced horizontal margin
         margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-
-        // ➡️ START: Frosted Glass Effect Implementation
         child: ClipRRect(
           borderRadius: BorderRadius.circular(10),
           child: BackdropFilter(
-            // Apply the blur effect
             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Container(
-              // Provides the color tint and dimensions
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               decoration: BoxDecoration(
-                // Use a lower opacity for the color tint now that the blur is active
                 color: theme.colorScheme.surface.withOpacity(0.75),
                 boxShadow: [
                   BoxShadow(
@@ -127,63 +134,63 @@ class _PillBottomNavBar extends StatelessWidget {
                   )
                 ],
               ),
-              // ➡️ END: Frosted Glass Effect Implementation
-
               child: Row(
                 children: List.generate(icons.length, (index) {
                   final bool selected = index == selectedIndex;
 
-                  return Expanded(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: () => onItemTapped(index),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        // Changed curve for a smoother visual feel (as discussed)
-                        curve: Curves.easeOutCubic,
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? theme.colorScheme.primary.withOpacity(0.15)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                selected ? icons[index][1] : icons[index][0],
-                                size: 26,
-                                color: selected
-                                    ? theme.colorScheme.primary
-                                    : Colors.grey.shade600,
-                              ),
-                              // AnimatedSize handles the text expansion
-                              AnimatedSize(
-                                duration: const Duration(milliseconds: 250),
-                                curve: Curves.easeOut,
-                                child: selected
-                                    ? Padding(
-                                  padding: const EdgeInsets.only(left: 2),
-                                  child: Text(
-                                    labels[index],
-                                    style: TextStyle(
-                                      color: theme.colorScheme.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                  // Removed key determination logic
+
+                  Widget itemContent = InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    // Removed showcase conditional tap logic
+                    onTap: () => onItemTapped(index),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutCubic,
+                      padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? theme.colorScheme.primary.withOpacity(0.15)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              selected ? icons[index][1] : icons[index][0],
+                              size: 26,
+                              color: selected
+                                  ? theme.colorScheme.primary
+                                  : Colors.grey.shade600,
+                            ),
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeOut,
+                              child: selected
+                                  ? Padding(
+                                padding: const EdgeInsets.only(left: 2),
+                                child: Text(
+                                  labels[index],
+                                  style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                )
-                                    : const SizedBox.shrink(),
-                              ),
-                            ],
-                          ),
+                                ),
+                              )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   );
+
+                  // Removed Showcase widget wrapper
+                  return Expanded(child: itemContent);
                 }),
               ),
             ),

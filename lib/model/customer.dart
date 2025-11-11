@@ -22,7 +22,7 @@ class Customer extends HiveObject {
   String address;
 
   @HiveField(5)
-  String tag; // Already added in previous step
+  String tag;
 
   Customer({
     required this.id,

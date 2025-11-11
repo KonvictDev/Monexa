@@ -5,7 +5,8 @@ import 'package:hive_flutter/adapters.dart';
 import 'package:intl/intl.dart';
 import '../../model/order.dart';
 import '../../repositories/order_repository.dart';
-import '../../services/gating_service.dart'; // ➡️ Import Gating Service
+import '../../services/gating_service.dart';
+import '../../utils/date_filter.dart'; // ➡️ Import Gating Service
 
 // 1. Convert to ConsumerStatefulWidget
 class ViewOrdersScreen extends ConsumerStatefulWidget {

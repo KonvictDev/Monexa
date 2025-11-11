@@ -9,7 +9,8 @@ import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
 import '../../repositories/product_repository.dart';
 import '../../repositories/settings_repository.dart';
-import '../../services/gating_service.dart'; // ➡️ Import Gating Service
+import '../../services/gating_service.dart';
+import '../../utils/date_filter.dart'; // ➡️ Import Gating Service
 
 class AddProductScreen extends ConsumerStatefulWidget {
   const AddProductScreen({super.key});

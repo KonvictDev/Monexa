@@ -7,11 +7,13 @@ import '../../repositories/product_repository.dart';
 import '../../repositories/settings_repository.dart'; // <-- ADD THIS
 import '../../utils/settings_utils.dart';
 
+// Assuming PaymentOption enum is defined elsewhere if needed for other screens
+// enum PaymentOption { cash, online }
+
 class UpdateStocksScreen extends ConsumerWidget {
   const UpdateStocksScreen({super.key});
 
   InputDecoration _modernInputDecoration(BuildContext context, String label) {
-    // ... (this method is unchanged) ...
     final colorScheme = Theme.of(context).colorScheme;
     return InputDecoration(
       labelText: label,
@@ -70,6 +72,7 @@ class UpdateStocksScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     // --- CATEGORY STATE ---
+    // Read the categories only once when the sheet opens
     List<String> categories = ref.read(settingsRepositoryProvider).getProductCategories();
     String selectedCategory = product.category;
     // --- END CATEGORY STATE ---
@@ -149,6 +152,7 @@ class UpdateStocksScreen extends ConsumerWidget {
                           await ref.read(settingsRepositoryProvider).addProductCategory(newCategory);
                           // Refresh list and set state
                           setModalState(() {
+                            // Re-read categories after adding one
                             categories = ref.read(settingsRepositoryProvider).getProductCategories();
                             selectedCategory = newCategory;
                           });
@@ -233,9 +237,9 @@ class UpdateStocksScreen extends ConsumerWidget {
     );
   }
 
+  // --- MODIFIED BUILD METHOD ---
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ... (build method is unchanged) ...
     final productRepository = ref.watch(productRepositoryProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -262,26 +266,33 @@ class UpdateStocksScreen extends ConsumerWidget {
             itemBuilder: (context, i) {
               final product = box.getAt(i)!;
 
-              // --- Image logic ---
-              String? imagePathToShow = product.thumbnailPath;
+              // --- Refined Image logic with Debugging ---
               File? imageFile;
+              String? finalPath;
 
-              if (imagePathToShow != null && imagePathToShow.isNotEmpty) {
-                final file = File(imagePathToShow);
-                if (file.existsSync()) {
-                  imageFile = file;
-                } else {
-                  imagePathToShow = null;
+              // 1. Try thumbnail first
+              if (product.thumbnailPath!.isNotEmpty) {
+                final potentialFile = File(product.thumbnailPath!);
+                if (potentialFile.existsSync()) {
+                  imageFile = potentialFile;
+                  finalPath = product.thumbnailPath;
                 }
               }
+
+              // 2. Fallback to full size image
               if (imageFile == null && product.imagePath.isNotEmpty) {
-                final file = File(product.imagePath);
-                if (file.existsSync()) {
-                  imageFile = file;
-                  imagePathToShow = product.imagePath;
+                final potentialFile = File(product.imagePath);
+                if (potentialFile.existsSync()) {
+                  imageFile = potentialFile;
+                  finalPath = product.imagePath;
                 }
               }
-              // --- End image logic ---
+
+              // 🐛 DEBUGGING: If the image path is not resolving, this will show why.
+              if (imageFile == null && product.imagePath.isNotEmpty) {
+                debugPrint('Image not found at expected path: ${product.imagePath}');
+              }
+              // --- End refined image logic ---
 
               return Card(
                 elevation: 3,
@@ -300,12 +311,20 @@ class UpdateStocksScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(12),
                     child: imageFile != null
                         ? Image.file(
-                      imageFile,
-                      width: 55,
-                      height: 55,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                      const Icon(Icons.broken_image_outlined),
+                        imageFile,
+                        width: 55,
+                        height: 55,
+                        fit: BoxFit.cover,
+                        // Ensure error handling shows a visual fallback
+                        errorBuilder: (context, error, stackTrace) {
+                          debugPrint('Error loading image file: $error');
+                          return Container(
+                            width: 55,
+                            height: 55,
+                            color: colorScheme.surfaceVariant.withOpacity(0.4),
+                            child: Icon(Icons.broken_image_outlined, color: colorScheme.error),
+                          );
+                        }
                     )
                         : Container(
                       width: 55,
@@ -319,11 +338,11 @@ class UpdateStocksScreen extends ConsumerWidget {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text(
-                    'Category: ${product.category}\n₹${product.price.toStringAsFixed(2)} • Stock: ${product.quantity}', // <-- MODIFIED
+                    'Category: ${product.category}\n₹${product.price.toStringAsFixed(2)} • Stock: ${product.quantity}',
                     style: TextStyle(color: colorScheme.outline),
                     maxLines: 3,
                   ),
-                  isThreeLine: true, // <-- ADD THIS
+                  isThreeLine: true,
                   trailing: IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.red),
                     onPressed: () {

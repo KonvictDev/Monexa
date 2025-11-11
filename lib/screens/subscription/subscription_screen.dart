@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:intl/intl.dart';
 
-import '../../providers/subscription_provider.dart';
+import '../../providers/user_profile_providers.dart';
 import '../../services/in_app_billing_service.dart';
 import '../../repositories/auth_repository.dart';
 import '../auth/phone_sign_in_screen.dart';
@@ -135,15 +135,14 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              isPro ? 'You are a Pro User!' : 'Unlock Your Business Potential',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: isPro
-                    ? Colors.green.shade700
-                    : theme.colorScheme.primary,
+            if (!isPro) // Only render if the user is NOT Pro
+              Text(
+                'Unlock Your Business Potential', // Text simplifies as it's only shown when not Pro
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.primary, // Only the primary color is needed here
+                ),
               ),
-            ),
             const SizedBox(height: 12),
             Text(
               isPro
@@ -152,7 +151,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               style: theme.textTheme.titleMedium
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
             content,
             const SizedBox(height: 80),
           ],
@@ -498,6 +497,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
 
   Widget _buildFeatureComparison(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Feature definition: (Name, isFree, isPro)
     const features = [
       ('Cloud Backup & Sync', true, true),
       ('Transactions/Orders', false, true),
@@ -508,64 +510,128 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       ('Security PIN', true, true),
     ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Feature Comparison',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold)),
-        const Divider(),
-        Table(
-          columnWidths: const {
-            0: FlexColumnWidth(3),
-            1: FlexColumnWidth(1.5),
-            2: FlexColumnWidth(1.5),
-          },
-          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+    // --- Header Row (Stays as a compact Row/Table for column alignment) ---
+    Widget buildHeaderRow() {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+        child: Row(
           children: [
-            TableRow(children: [
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8.0),
-                child:
-                Text('Feature', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text('Free',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurfaceVariant)),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text('Pro',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary)),
-              ),
-            ]),
-            ...features.map(
-                  (f) => TableRow(
-                decoration: BoxDecoration(
-                  border: Border(
-                      bottom: BorderSide(
-                          color: theme.dividerColor.withOpacity(0.5))),
-                ),
-                children: [
-                  Padding(
-                    padding:
-                    const EdgeInsets.symmetric(vertical: 10.0),
-                    child:
-                    Text(f.$1, style: theme.textTheme.bodyMedium),
-                  ),
-                  _buildFeatureCell(context, f.$2, f.$1),
-                  _buildFeatureCell(context, f.$3, f.$1),
-                ],
-              ),
+            const SizedBox(width: 8), // Padding to align with Row content
+            Expanded(
+              flex: 3,
+              child: Text('Feature', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+            ),
+            Expanded(
+              flex: 1,
+              child: Text('Free',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurfaceVariant)),
+            ),
+            Expanded(
+              flex: 1,
+              child: Text('Pro',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary)),
             ),
           ],
         ),
+      );
+    }
+
+    // --- Main Comparison Body ---
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: Text('Feature Comparison',
+              style: theme.textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
+        ),
+        // Optional: Wrap in a Card for a cleaner, elevated Material look
+        Card(
+          elevation: 2,
+          margin: EdgeInsets.zero,
+          child: Column(
+            children: [
+              buildHeaderRow(),
+              const Divider(height: 1, thickness: 1),
+
+              // Generate Feature Rows
+              ...features.map((f) => _buildFeatureRow(context, f.$1, f.$2, f.$3)).toList(),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+// --- NEW HELPER WIDGET for each feature row ---
+  Widget _buildFeatureRow(
+      BuildContext context, String featureName, bool isFree, bool isPro) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Custom content for "Free" column based on the feature
+    String freeText = '';
+    if (isFree) {
+      // If enabled, use a checkmark icon
+      freeText = '';
+    } else if (featureName.contains('Transactions')) {
+      freeText = '50/mo';
+    } else if (featureName.contains('Products')) {
+      freeText = '20 Max';
+    }
+
+    Widget buildIcon(bool enabled, {String? customText}) {
+      if (enabled) {
+        return Icon(Icons.check_circle_outline,
+            color: colorScheme.primary, // Use primary color for Material You feel
+            size: 20);
+      } else if (customText != null && customText.isNotEmpty) {
+        return Text(customText,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ));
+      } else {
+        return Icon(Icons.remove_circle_outline,
+            color: colorScheme.outline, // Use a neutral color for unavailable features
+            size: 20);
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(featureName, style: theme.textTheme.bodyLarge),
+          ),
+
+          // --- FREE Column ---
+          Expanded(
+            flex: 1,
+            child: Center(
+              child: buildIcon(isFree, customText: freeText),
+            ),
+          ),
+
+          // --- PRO Column ---
+          Expanded(
+            flex: 1,
+            child: Center(
+              child: buildIcon(isPro), // Pro features are typically always checked
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -602,7 +668,11 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   }
 }
 
-// Pro Details Widget
+final allProductsDetailsProvider = FutureProvider<List<ProductDetails>>((ref) async {
+  final billingService = ref.read(inAppBillingServiceProvider);
+  return billingService.fetchProducts();
+});
+
 class _ProDetailsWidget extends ConsumerWidget {
   const _ProDetailsWidget({super.key});
 
@@ -625,17 +695,19 @@ class _ProDetailsWidget extends ConsumerWidget {
     };
 
     final List<Widget> widgets = [];
-    final TextStyle checkmarkStyle =
-    theme.textTheme.titleMedium!.copyWith(color: Colors.green.shade700);
+    final TextStyle featureTextStyle =
+    theme.textTheme.bodyLarge!.copyWith(color: theme.colorScheme.onSurface);
 
     featureGroups.forEach((title, features) {
       widgets.add(Padding(
         padding: const EdgeInsets.only(top: 20, bottom: 8),
-        child: Text(title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.primary,
-            )),
+        child: Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.primary,
+          ),
+        ),
       ));
       for (var f in features) {
         widgets.add(Padding(
@@ -646,7 +718,7 @@ class _ProDetailsWidget extends ConsumerWidget {
               Icon(Icons.check_circle_outline,
                   size: 20, color: Colors.green.shade600),
               const SizedBox(width: 10),
-              Expanded(child: Text(f, style: checkmarkStyle)),
+              Expanded(child: Text(f, style: featureTextStyle)),
             ],
           ),
         ));
@@ -655,17 +727,28 @@ class _ProDetailsWidget extends ConsumerWidget {
     return widgets;
   }
 
+  String _getLivePrice(String planId, List<ProductDetails> products) {
+    try {
+      final product = products.firstWhere((p) => p.id == planId);
+      return product.price;
+    } catch (e) {
+      return 'Price N/A';
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(userProfileStreamProvider);
+    final productsAsync = ref.watch(allProductsDetailsProvider);
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final products = productsAsync.value ?? [];
 
     return profileAsync.when(
-      loading: () =>
-      const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: CircularProgressIndicator()), // ← Simple loader
       error: (e, s) => Center(
         child: Text('Error loading profile: $e',
-            style: TextStyle(color: theme.colorScheme.error)),
+            style: TextStyle(color: colorScheme.error)),
       ),
       data: (profile) {
         if (profile == null || !profile.isPro) {
@@ -673,92 +756,149 @@ class _ProDetailsWidget extends ConsumerWidget {
         }
         final planId = profile.lastSubscriptionId ?? 'Unknown Plan';
         final expiry = profile.proExpiry;
-        final planName = planId.contains('monthly')
+        final planNameFull = planId.contains('monthly')
             ? 'Monexa Pro (Monthly)'
             : planId.contains('annual')
             ? 'Monexa Pro (Annual)'
             : 'Monexa Pro';
+        final planDuration =
+        planId.contains('monthly') ? 'Monthly' : 'Yearly';
+        final String livePrice = _getLivePrice(planId, products);
 
-        return Card(
-          color: Colors.green.shade100,
-          elevation: 4,
-          margin: const EdgeInsets.symmetric(vertical: 20),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Icon(Icons.workspace_premium_rounded,
-                      color: Colors.green.shade700, size: 36),
-                  const SizedBox(width: 16),
-                  Text('Subscription Active!',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        color: Colors.green.shade800,
-                        fontWeight: FontWeight.bold,
-                      )),
-                ]),
-                const Divider(height: 30),
-                _buildDetailRow(context, Icons.card_membership,
-                    'Current Plan', planName, isPrimary: true),
-                const SizedBox(height: 12),
-                if (expiry != null)
-                  _buildDetailRow(
-                    context,
-                    Icons.event_available_rounded,
-                    'Renews On',
-                    DateFormat.yMMMMd().format(expiry),
-                    color: theme.colorScheme.primary,
+        final DateTime startDate = expiry?.subtract(
+            Duration(days: planDuration == 'Yearly' ? 365 : 30)) ??
+            DateTime.now();
+
+        return AnimatedOpacity(
+          opacity: 1.0,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOut,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Premium Subscription Card
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 20),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    colors: [
+                      colorScheme.primary.withOpacity(0.8),
+                      colorScheme.secondary.withOpacity(0.7),
+                      Colors.lightBlue.shade300.withOpacity(0.5),
+                      Colors.purple.shade200.withOpacity(0.5),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    stops: const [0.0, 0.3, 0.7, 1.0],
                   ),
-                const SizedBox(height: 24),
-                Text('Your New Monexa Pro Features:',
-                    style: theme.textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.bold)),
-                const Divider(height: 20),
-                ..._buildProFeatures(context, theme),
-                const SizedBox(height: 20),
-                Text(
-                  'Your benefits are now unlocked across all your devices linked to this account.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontStyle: FontStyle.italic,
-                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.primary.withOpacity(0.3),
+                      spreadRadius: 2,
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            planDuration,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          livePrice,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Icon(Icons.workspace_premium_rounded,
+                            color: Colors.white, size: 48),
+                        const SizedBox(width: 16),
+                        Text(
+                          planNameFull.split('(').first.trim(),
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 30),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildDateInfo(
+                            context, 'Start:', DateFormat.yMMMMd().format(startDate)),
+                        _buildDateInfo(
+                            context, 'End:', DateFormat.yMMMMd().format(expiry!)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text('Monexa Pro Features:',
+                  style: theme.textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              const Divider(height: 20),
+              ..._buildProFeatures(context, theme),
+              const SizedBox(height: 20),
+              Text(
+                'Thank you for your continued support! Enjoy the full experience.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
           ),
         );
       },
     );
   }
-  Widget _buildDetailRow(
-      BuildContext context,
-      IconData icon,
-      String title,
-      String value,
-      {Color? color, bool isPrimary = false}) {
-    final theme = Theme.of(context);
-    return Row(
+
+  Widget _buildDateInfo(BuildContext context, String label, String date) {
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 24, color: color ?? theme.colorScheme.primary),
-        const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-            Text(
-              value,
-              style: isPrimary
-                  ? theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)
-                  : theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600, color: color),
-            ),
-          ],
-        ),
+        Text(label,
+            style: textTheme.labelLarge?.copyWith(
+              color: Colors.white70,
+              fontWeight: FontWeight.w500,
+            )),
+        Text(date,
+            style: textTheme.titleSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            )),
       ],
     );
   }
 }
+
+

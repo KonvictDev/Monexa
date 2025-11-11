@@ -1,30 +1,18 @@
 // lib/services/gating_service.dart
 
+import 'package:billing/services/remote_config_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/subscription_provider.dart';
+import '../providers/user_profile_providers.dart';
+import '../utils/date_filter.dart';
 
 final gatingServiceProvider = Provider((ref) => GatingService(ref));
 
-enum Feature {
-  // Volume Limits (Orders and Products)
-  orders,
-  products,
-
-  // Feature Access (UI/Gated)
-  cloudSync,
-  dataRestore,
-  dataExport,
-  advancedFiltering,
-  customerManagement, // Add/Edit/Delete Customers
-  categoryCustomization, // Add new categories
-  receiptCustomization, // Edit receipt footer/toggles
-  ltvAnalytics, // Customer LTV metrics
-  changeSecurityPin, // Changing the PIN
-}
-
 class GatingService {
   final Ref _ref;
-  GatingService(this._ref);
+  late final RemoteConfigService _remoteConfigService;
+  GatingService(this._ref){
+    _remoteConfigService = _ref.read(remoteConfigServiceProvider);
+  }
 
   // Checks if the user is Pro
   bool get isPro => _ref.read(isProProvider);
@@ -58,10 +46,10 @@ class GatingService {
     switch (feature) {
       case Feature.orders:
       // Free limit: 30 orders/month
-        return currentUsage < 3;
+        return currentUsage < _remoteConfigService.freeOrderLimit;
       case Feature.products:
       // Free limit: 20 total products (Fixed limit bug)
-        return currentUsage < 2;
+        return currentUsage < _remoteConfigService.freeProductLimit;
       default:
         return true;
     }

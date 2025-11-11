@@ -1,3 +1,5 @@
+// SettingsRepository.dart
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -12,7 +14,9 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
 class SettingsRepository {
   final Box _settingsBox;
   final Ref _ref;
-  static const _productCategoriesKey = 'productCategories'; // <-- ADD THIS
+  static const _productCategoriesKey = 'productCategories';
+
+  // Removed showcase flow keys
 
   SettingsRepository(this._settingsBox, this._ref);
 
@@ -24,9 +28,8 @@ class SettingsRepository {
     return 'INV-${currentCounter.toString().padLeft(6, '0')}';
   }
 
-  // --- NEW CATEGORY METHODS ---
+  // --- Category Methods ---
   List<String> getProductCategories() {
-    // Get list from Hive, default to an empty list
     return _settingsBox.get(_productCategoriesKey, defaultValue: <String>[]);
   }
 
@@ -38,7 +41,6 @@ class SettingsRepository {
       await _settingsBox.put(_productCategoriesKey, categories);
     }
   }
-  // --- END NEW CATEGORY METHODS ---
 
   // --- Generic Getters/Setters ---
   T get<T>(String key, {required T defaultValue}) {
@@ -47,7 +49,6 @@ class SettingsRepository {
 
   Future<void> put(String key, dynamic value) async {
     await _settingsBox.put(key, value);
-    // Hive automatically updates its listenable; no manual notify needed.
   }
 
   ValueListenable<Box> getListenable({List<String>? keys}) {
@@ -65,4 +66,28 @@ class SettingsRepository {
     await _ref.read(expenseRepositoryProvider).clearAll();
     await _settingsBox.clear();
   }
+
+  // Removed showcase helper methods and getters:
+  // setShowcaseStepComplete, hasSeenShowcase, shouldShowManagementHubShowcase, etc.
+
+  // Placeholder for showcase helpers to avoid dependent errors elsewhere,
+  // but logically removed. If these are used by other files, replace them
+  // with simple non-showcase defaults.
+
+  // Re-adding the minimal structure needed by other files:
+  static const showcaseFlow1 = 'showcase_management_tap';
+  static const showcaseFlow2 = 'showcase_product_add';
+  static const showcaseFlow3 = 'showcase_billing_start';
+  static const showcaseFlow4 = 'showcase_billing_checkout';
+  static const showcaseFlow5 = 'showcase_billing_confirm';
+
+  // These dummy getters prevent errors in the cleaned files above, assuming
+  // they were only used for showcase flow control.
+  bool get shouldShowManagementHubShowcase => false;
+  bool get shouldShowProductAddShowcase => false;
+  bool get shouldShowBillingStartShowcase => false;
+  bool get shouldShowBillingCheckoutShowcase => false;
+  bool get shouldShowBillingConfirmShowcase => false;
+  bool get isAnyShowcaseActive => false;
+  Future<void> setShowcaseStepComplete(String key) async {}
 }

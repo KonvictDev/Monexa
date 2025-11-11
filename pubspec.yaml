@@ -2,7 +2,7 @@ name: billing
 description: "A new Flutter project for managing billing and sales."
 publish_to: 'none'
 
-version: 1.0.0+3
+version: 1.0.0+4
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -42,6 +42,7 @@ dependencies:
   firebase_auth: ^5.3.1         # Firebase Authentication (email/phone/etc.)
   firebase_crashlytics: ^4.1.3  # Crash reporting and analytics
   cloud_functions: ^5.0.0       # Call backend serverless functions
+  firebase_remote_config: ^5.5.0
 
   # ------------------------------------------------------------
   # 📄 File Operations / Printing / Sharing
@@ -70,6 +71,7 @@ dependencies:
   image: ^4.5.4                 # Image processing and resizing
   url_launcher: ^6.3.2          # Open external URLs, phone, or email apps
   webview_flutter: ^4.13.0      # Embed web pages in Flutter UI
+  showcaseview: ^5.0.1
 
   # ------------------------------------------------------------
   # ⚙️ State Management & Secure Storage
@@ -135,7 +137,10 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/
+    - assets/images/onboard1.png
+    - assets/images/onboard2.png
+    - assets/images/onboard3.png
+    - assets/images/onboard4.png
     - assets/icons/
     - assets/fonts/
 
