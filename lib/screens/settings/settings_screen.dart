@@ -18,19 +18,12 @@ import 'receipt_settings_screen.dart';
 import 'appearance_settings_screen.dart';
 import 'change_pin_screen.dart';
 
-// Dependencies for export & sync
-import '../../repositories/order_repository.dart';
-import '../../repositories/expense_repository.dart';
-import '../../repositories/product_repository.dart';
-import '../../repositories/customer_repository.dart';
-import '../../services/csv_service.dart';
-
 // Imports for Auth & Sync
 import '../../repositories/firebase_sync_repository.dart';
 import '../../repositories/auth_repository.dart';
 import 'package:billing/providers/pin_auth_provider.dart';
 import 'package:billing/auth_wrapper.dart';
-import '../../providers/user_profile_providers.dart'; // ⬅️ REQUIRED SUBSCRIPTION IMPORT
+import '../../providers/user_profile_providers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -42,11 +35,27 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int? dataSizeBytes;
   bool _isLoading = false;
+  String _appVersion = 'Loading...';
+  String _appName = 'Monexa'; // Default fallback
 
   @override
   void initState() {
     super.initState();
     _calculateDataSize();
+    _loadAppInfo();
+  }
+
+  Future<void> _loadAppInfo() async {
+    // ➡️ Use the static methods from the utility class
+    final name = await AppInfoUtil.getAppName();
+    final version = await AppInfoUtil.getAppVersionString();
+
+    if (mounted) {
+      setState(() {
+        _appName = name;
+        _appVersion = version;
+      });
+    }
   }
 
   /// Calculates the total local data size (in bytes)
@@ -490,8 +499,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onTap: () {
                 showLicensePage(
                   context: context,
-                  applicationName: 'Monexa',
-                  applicationVersion: '1.0.0 (Production)',
+                  applicationName: _appName,
+                  applicationVersion: _appVersion,
                 );
               },
             ),
@@ -513,10 +522,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 32),
           Center(
             child: Text(
-              'Version 1.0.0 • Monexa',
-              style: Theme.of(context).textTheme.bodySmall!.copyWith(
+              '$_appVersion • $_appName',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).hintColor,
               ),
+              textAlign: TextAlign.center,
             ),
           ),
           const SizedBox(height: 80),

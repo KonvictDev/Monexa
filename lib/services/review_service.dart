@@ -11,24 +11,36 @@ class ReviewService {
   final _settingsBox = Hive.box('settings');
   static const _promptCountKey = 'review_prompt_count';
   static const _lastPromptKey = 'review_last_prompt_timestamp';
+  static const int _targetCount = 3; // Trigger after 3 successful orders
+  static const int _cooldownDays = 30; // 30-day cooldown
 
-  // ➡️ Trigger logic: Call this after a successful order is placed
+  // ➡️ Corrected Trigger logic
   Future<void> triggerReviewFlow() async {
+    // 1. Get current count and IMMEDIATELY increment it.
     final int currentCount = _settingsBox.get(_promptCountKey, defaultValue: 0);
-    final int targetCount = 3; // Trigger after 3 successful orders
+    final int newCount = currentCount + 1;
 
-    if (currentCount >= targetCount) {
-      final lastPrompt = _settingsBox.get(_lastPromptKey);
-      final bool recentlyPrompted = lastPrompt != null &&
-          DateTime.now().difference(lastPrompt as DateTime).inDays < 30; // 30-day cooldown
+    // Save the new count (this is the value we'll check against the target)
+    await _settingsBox.put(_promptCountKey, newCount);
+
+    if (newCount >= _targetCount) {
+      final lastPromptTimestamp = _settingsBox.get(_lastPromptKey);
+
+      final bool recentlyPrompted = lastPromptTimestamp != null &&
+          DateTime.now().difference(lastPromptTimestamp as DateTime).inDays < _cooldownDays;
 
       if (await _inAppReview.isAvailable() && !recentlyPrompted) {
+        // 2. Show Review
         await _inAppReview.requestReview();
-        _settingsBox.put(_promptCountKey, 0); // Reset counter after prompt
-        _settingsBox.put(_lastPromptKey, DateTime.now());
+
+        // 3. Reset counter and timestamp
+        await _settingsBox.put(_promptCountKey, 0);
+        await _settingsBox.put(_lastPromptKey, DateTime.now());
       }
-    } else {
-      _settingsBox.put(_promptCountKey, currentCount + 1);
+      // If the review is not available or recently prompted, the counter remains at 3 (or higher)
+      // until the cooldown expires or the service becomes available.
+
     }
+    // If newCount is < targetCount, we already saved the incremented value above, so we're done.
   }
 }

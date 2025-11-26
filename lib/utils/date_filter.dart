@@ -29,3 +29,4 @@ enum Feature {
   ltvAnalytics, // Customer LTV metrics
   changeSecurityPin, // Changing the PIN
 }
+

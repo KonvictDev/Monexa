@@ -173,7 +173,7 @@ class CartProvider with ChangeNotifier {
       // 4. Save the new Order
       await _orderRepository.addOrder(newOrder);
 
-      // 5. Clear the cart
+
       clearCart();
 // ➡️ Trigger review flow after a successful order
       _ref.read(reviewServiceProvider).triggerReviewFlow();

@@ -1,6 +1,7 @@
 // Helper for confirmation dialogs
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 Future<void> showConfirmationDialog(
     BuildContext context, {
@@ -70,4 +71,28 @@ TextFormField buildSettingsTextField({
     inputFormatters: inputFormatters,
     validator: validator,
   );
+}
+class AppInfoUtil {
+  // Static variable to cache the info once loaded
+  static PackageInfo? _packageInfo;
+
+  /// Loads package info once and returns the PackageInfo object.
+  static Future<PackageInfo> getPackageInfo() async {
+    if (_packageInfo == null) {
+      _packageInfo = await PackageInfo.fromPlatform();
+    }
+    return _packageInfo!;
+  }
+
+  /// Returns the formatted application version string (e.g., 1.0.0 (Build 1)).
+  static Future<String> getAppVersionString() async {
+    final info = await getPackageInfo();
+    return 'Version ${info.version} (${info.buildNumber})';
+  }
+
+  /// Returns the application name.
+  static Future<String> getAppName() async {
+    final info = await getPackageInfo();
+    return info.appName;
+  }
 }
