@@ -2,7 +2,7 @@ import 'package:hive/hive.dart';
 
 part 'order_item.g.dart';
 
-@HiveType(typeId: 2) // Unique typeId
+@HiveType(typeId: 2)
 class OrderItem extends HiveObject {
   @HiveField(0)
   late String productId;
@@ -16,34 +16,27 @@ class OrderItem extends HiveObject {
   @HiveField(3)
   late int quantity;
 
-  // --- NEW FIELD FOR CATEGORY ---
   @HiveField(4)
   late String category;
-  // --- END NEW FIELD ---
 
   OrderItem({
     required this.productId,
     required this.name,
     required this.price,
     required this.quantity,
-    required this.category, // <-- ADD THIS
+    required this.category,
   });
 
-  // --- NEW METHOD FOR FIRESTORE SYNC ---
   Map<String, dynamic> toJson() {
     return {
       'productId': productId,
       'name': name,
       'price': price,
       'quantity': quantity,
-      'category': category, // <-- ADD THIS
+      'category': category,
       'subtotal': price * quantity,
     };
   }
-
-  // lib/model/order_item.dart
-
-// ... existing code ...
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
@@ -55,4 +48,3 @@ class OrderItem extends HiveObject {
     );
   }
 }
-// -------------------------------------

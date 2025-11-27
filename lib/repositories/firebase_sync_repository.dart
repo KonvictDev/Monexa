@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:billing/repositories/settings_repository.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +28,7 @@ final firebaseSyncRepositoryProvider = Provider<FirebaseSyncRepository>((ref) {
     ref.watch(expenseRepositoryProvider),
     ref.watch(authRepositoryProvider),
     ref.watch(customerRepositoryProvider), // <-- ADDED
+    ref.watch(settingsRepositoryProvider), // 🔥 ADD THIS
   );
 });
 
@@ -37,6 +39,7 @@ class FirebaseSyncRepository {
   final ExpenseRepository _expenseRepo;
   final AuthRepository _authRepo;
   final CustomerRepository _customerRepo; // <-- ADDED
+  final SettingsRepository _settingsRepo; // <-- ADDED
   final _firestore = FirebaseFirestore.instance;
   final _storage = FirebaseStorage.instance;
 
@@ -45,7 +48,8 @@ class FirebaseSyncRepository {
       this._orderRepo,
       this._expenseRepo,
       this._authRepo,
-      this._customerRepo, // <-- ADDED
+      this._customerRepo,
+      this._settingsRepo,// <-- ADDED
       );
 
   // --- CORE SYNC (UPLOAD) ---
@@ -300,6 +304,8 @@ class FirebaseSyncRepository {
   // Product-specific Download (with Image Download Logic) (Updated for Category)
   Future<void> _downloadAndSaveProducts(String uid) async {
     final snapshot = await _firestore.collection('users').doc(uid).collection('products').get();
+    // 🔥 3. Create a Set to track all unique categories found in the cloud
+    final Set<String> restoredCategories = {};
 
     for (var doc in snapshot.docs) {
       final data = doc.data() as Map<String, dynamic>;
@@ -313,6 +319,13 @@ class FirebaseSyncRepository {
       // Download Images
       final localImagePath = await _downloadImageFile(originalUrl, originalFilename);
       final localThumbnailPath = await _downloadImageFile(thumbnailUrl, thumbnailFilename);
+      // Handle Category
+      String category = data['category'] as String? ?? 'Uncategorized';
+
+      // 🔥 4. Add to our Set of categories
+      if (category.isNotEmpty && category != 'Uncategorized') {
+        restoredCategories.add(category);
+      }
 
       // Map data to local Product model
       final product = local_model.Product(
@@ -323,7 +336,7 @@ class FirebaseSyncRepository {
         quantity: data['quantity'],
 
         // Ensure category is always handled for old/new schema
-        category: data['category'] as String? ?? 'Uncategorized',
+        category: category,
 
         imagePath: localImagePath ?? '',
         thumbnailPath: localThumbnailPath,
@@ -334,6 +347,10 @@ class FirebaseSyncRepository {
 
       // FIX: Use the public getter instead of the private field
       await _productRepo.productBox.put(product.id, product);
+    }
+    debugPrint("DEBUG: Found these categories in cloud products: $restoredCategories");
+    if (restoredCategories.isNotEmpty) {
+      await _settingsRepo.mergeCategories(restoredCategories.toList());
     }
     debugPrint('Restored ${snapshot.docs.length} products.');
   }

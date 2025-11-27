@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hive/hive.dart';
 
-part 'expense.g.dart'; // This file will be generated
+part 'expense.g.dart';
 
-@HiveType(typeId: 3) // Assuming 0 is Product and 1 is Order
+@HiveType(typeId: 3)
 class Expense extends HiveObject {
   @HiveField(0)
   String description;
@@ -22,8 +22,6 @@ class Expense extends HiveObject {
 
   // --- NEW METHOD FOR FIRESTORE SYNC ---
   Map<String, dynamic> toJson() {
-    // Expense doesn't have an 'id' field, so we use its Hive key for the document ID,
-    // but we don't include the key in the document data itself.
     return {
       'description': description,
       'amount': amount,
@@ -31,5 +29,4 @@ class Expense extends HiveObject {
       'lastSynced': FieldValue.serverTimestamp(),
     };
   }
-// -------------------------------------
 }

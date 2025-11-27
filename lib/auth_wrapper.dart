@@ -1,6 +1,4 @@
-// lib/auth_wrapper.dart (REFACTORED)
-
-import 'package:billing/providers/pin_auth_provider.dart';
+  import 'package:billing/providers/pin_auth_provider.dart';
 import 'package:billing/repositories/settings_repository.dart';
 import 'package:billing/screens/auth/pin_lock_screen.dart';
 import 'package:billing/screens/auth/pin_setup_screen.dart';
@@ -12,9 +10,6 @@ import 'app_check_wrapper.dart';
 // ➡️ Import your other screens
 import 'onboarding_screen.dart';
 import 'main_navigation_screen.dart';
-
-// ❌ The version providers are no longer needed here
-// ❌ The isBlockedProvider is no longer needed here
 
 class AuthWrapper extends ConsumerWidget {
   const AuthWrapper({super.key});

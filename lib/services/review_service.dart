@@ -1,5 +1,3 @@
-// lib/services/review_service.dart
-
 import 'package:in_app_review/in_app_review.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -14,13 +12,10 @@ class ReviewService {
   static const int _targetCount = 3; // Trigger after 3 successful orders
   static const int _cooldownDays = 30; // 30-day cooldown
 
-  // ➡️ Corrected Trigger logic
   Future<void> triggerReviewFlow() async {
-    // 1. Get current count and IMMEDIATELY increment it.
     final int currentCount = _settingsBox.get(_promptCountKey, defaultValue: 0);
     final int newCount = currentCount + 1;
 
-    // Save the new count (this is the value we'll check against the target)
     await _settingsBox.put(_promptCountKey, newCount);
 
     if (newCount >= _targetCount) {

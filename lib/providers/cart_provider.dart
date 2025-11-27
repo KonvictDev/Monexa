@@ -4,15 +4,12 @@ import 'package:uuid/uuid.dart';
 import '../model/order.dart';
 import '../model/order_item.dart';
 import '../model/product.dart';
-// 1. IMPORT THE REPOSITORIES
 import '../repositories/product_repository.dart';
 import '../repositories/order_repository.dart';
 import '../repositories/settings_repository.dart';
 import '../services/review_service.dart';
-import '../utils/date_filter.dart';
+import '../utils/constants.dart';
 
-// 2. MODIFY THE PROVIDER DEFINITION
-// We now pass the `ref` to the CartProvider's constructor.
 final cartProvider = ChangeNotifierProvider<CartProvider>((ref) {
   return CartProvider(ref);
 });
@@ -167,15 +164,13 @@ class CartProvider with ChangeNotifier {
         totalAmount: finalTotal,
         orderDate: DateTime.now(),
         paymentMethod: _paymentMethod.name,
-        invoiceNumber: invoiceNumber, // <-- ADDED
+        invoiceNumber: invoiceNumber,
       );
 
       // 4. Save the new Order
       await _orderRepository.addOrder(newOrder);
 
-
       clearCart();
-// ➡️ Trigger review flow after a successful order
       _ref.read(reviewServiceProvider).triggerReviewFlow();
       return (newOrder, null);
     } catch (e) {

@@ -10,8 +10,6 @@ import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:billing/repositories/settings_repository.dart';
 
-// Removed ShowcaseKeys class and provider
-
 class MainNavigationScreen extends ConsumerStatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -23,8 +21,6 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
 class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
-
-  // Removed ShowcaseKeys fields
 
   final List<String> _tabLabels = const [
     'Home',
@@ -39,11 +35,14 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
     const SettingsScreen(),
   ];
 
-  final List<List<IconData>> _icons = const [
-    [Icons.home_outlined, Icons.home_rounded],
-    [Icons.inventory_2_outlined, Icons.inventory_2_rounded],
-    [Icons.point_of_sale_outlined, Icons.point_of_sale_rounded],
-    [Icons.person_outline_rounded, Icons.person_rounded],
+  // 🔥 UPDATED: Changed from List<List<IconData>> to List<List<dynamic>>
+  // to support both Strings (Assets) and IconData.
+  // Index 0: Inactive, Index 1: Active
+  final List<List<dynamic>> _icons = const [
+    ['assets/icons/home_outline.png', 'assets/icons/home_filled.png'], // Custom Images
+    ['assets/icons/manage_outline.png', 'assets/icons/manage_filled.png'], // Material Icons
+    ['assets/icons/billing_filled.png', 'assets/icons/billing_filled.png'], // Material Icons
+    ['assets/icons/settings_outline.png', 'assets/icons/settings_filled.png'], // Material Icons
   ];
 
   final Map<int, int> _tabIndexToPageIndex = const {
@@ -55,7 +54,6 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
   @override
   void initState() {
     super.initState();
-    // Removed showcase initialization and start logic
   }
 
   void _onItemTapped(int index) {
@@ -71,11 +69,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
     }
   }
 
-  // Removed _checkAndStartShowcase and _onShowcaseFinish methods
-
   @override
   Widget build(BuildContext context) {
-    // Removed ShowCaseWidget wrapper
     final int pageIndex = _tabIndexToPageIndex[_selectedIndex]!;
 
     return Scaffold(
@@ -89,7 +84,6 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
         onItemTapped: _onItemTapped,
         icons: _icons,
         labels: _tabLabels,
-        // Removed keys parameter
       ),
     );
   }
@@ -98,32 +92,30 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
 class _PillBottomNavBar extends ConsumerWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
-  final List<List<IconData>> icons;
+  // 🔥 UPDATED: Now accepts dynamic to allow Strings or IconData
+  final List<List<dynamic>> icons;
   final List<String> labels;
-  // Removed keys field
 
   const _PillBottomNavBar({
     required this.selectedIndex,
     required this.onItemTapped,
     required this.icons,
     required this.labels,
-    // Removed keys requirement
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    // Removed isShowcaseActive check
 
     return SafeArea(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(10),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface.withOpacity(0.75),
                 boxShadow: [
@@ -138,17 +130,20 @@ class _PillBottomNavBar extends ConsumerWidget {
                 children: List.generate(icons.length, (index) {
                   final bool selected = index == selectedIndex;
 
-                  // Removed key determination logic
+                  // Extract the correct icon/path based on selection state
+                  final dynamic iconSource = selected ? icons[index][1] : icons[index][0];
+                  final Color iconColor = selected
+                      ? theme.colorScheme.primary
+                      : Colors.grey.shade600;
 
                   Widget itemContent = InkWell(
                     borderRadius: BorderRadius.circular(10),
-                    // Removed showcase conditional tap logic
                     onTap: () => onItemTapped(index),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOutCubic,
-                      padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 8),
                       decoration: BoxDecoration(
                         color: selected
                             ? theme.colorScheme.primary.withOpacity(0.15)
@@ -160,19 +155,27 @@ class _PillBottomNavBar extends ConsumerWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              selected ? icons[index][1] : icons[index][0],
-                              size: 26,
-                              color: selected
-                                  ? theme.colorScheme.primary
-                                  : Colors.grey.shade600,
-                            ),
+                            // 🔥 LOGIC: Check type to decide render method
+                            if (iconSource is String)
+                              Image.asset(
+                                iconSource,
+                                width: 24, // Explicit size to match Icon
+                                height: 24,
+                                color: iconColor, // Tint the image
+                              )
+                            else
+                              Icon(
+                                iconSource as IconData,
+                                size: 26,
+                                color: iconColor,
+                              ),
+
                             AnimatedSize(
                               duration: const Duration(milliseconds: 250),
                               curve: Curves.easeOut,
                               child: selected
                                   ? Padding(
-                                padding: const EdgeInsets.only(left: 2),
+                                padding: const EdgeInsets.only(left: 6), // Increased slightly for image spacing
                                 child: Text(
                                   labels[index],
                                   style: TextStyle(
@@ -189,7 +192,6 @@ class _PillBottomNavBar extends ConsumerWidget {
                     ),
                   );
 
-                  // Removed Showcase widget wrapper
                   return Expanded(child: itemContent);
                 }),
               ),

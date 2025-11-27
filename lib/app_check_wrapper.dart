@@ -1,10 +1,6 @@
-// lib/architecture/app_check_wrapper.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-// ➡️ CORRECTED IMPORT: Ensure this points to your consolidated providers file
 import 'package:billing/providers/app_check_providers.dart';
 
 class AppCheckWrapper extends ConsumerStatefulWidget {
@@ -125,13 +121,9 @@ class _AppCheckWrapperState extends ConsumerState<AppCheckWrapper> {
       }
     });
 
-
-    // 7. ALWAYS return the child.
     return widget.child;
   }
 
-
-  // --- Dialog Builders ---
 
   Widget _buildBlockedDialog(BuildContext dialogContext) {
     return AlertDialog(

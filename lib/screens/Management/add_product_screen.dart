@@ -1,4 +1,3 @@
-// lib/screens/management/add_product_screen.dart (MODIFIED - Gating Category Customization)
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,7 +9,7 @@ import 'package:image/image.dart' as img;
 import '../../repositories/product_repository.dart';
 import '../../repositories/settings_repository.dart';
 import '../../services/gating_service.dart';
-import '../../utils/date_filter.dart'; // ➡️ Import Gating Service
+import '../../utils/constants.dart';
 
 class AddProductScreen extends ConsumerStatefulWidget {
   const AddProductScreen({super.key});
@@ -29,7 +28,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   File? _image;
   bool _isSaving = false;
 
-  late List<String> _categories;
+  // Initialized empty to prevent null errors before load
+  List<String> _categories = [];
   String? _selectedCategory;
 
   @override
@@ -39,8 +39,10 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   }
 
   void _loadCategories() {
+    // Fetch latest categories from Hive
+    final loaded = ref.read(settingsRepositoryProvider).getProductCategories();
     setState(() {
-      _categories = ref.read(settingsRepositoryProvider).getProductCategories();
+      _categories = loaded;
     });
   }
 
@@ -63,8 +65,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(context, controller.text.trim()),
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Add'),
           ),
         ],
@@ -72,11 +73,55 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     );
   }
 
-  Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() => _image = File(picked.path));
+  // --- IMAGE LOGIC START ---
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 70, // Optimized for performance
+        maxWidth: 1024,   // Resize large camera photos
+      );
+
+      if (picked != null) {
+        setState(() => _image = File(picked.path));
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+      // Optional: Show a snackbar if permission is denied
     }
+  }
+
+  void _showImageSourceModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Take a Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Choose from Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<File?> _createThumbnail(File originalImage) async {
@@ -97,6 +142,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       return null;
     }
   }
+  // --- IMAGE LOGIC END ---
 
   void _resetForm() {
     setState(() {
@@ -120,10 +166,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       return;
     }
 
-    if (_image == null) {
-      // Image check...
-    }
-
     if (_selectedCategory == null || _selectedCategory!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a product category.')),
@@ -134,36 +176,50 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final fileName = p.basename(_image!.path);
-      final permanentPath = '${appDir.path}/$fileName';
-      final newImage = await _image!.copy(permanentPath);
-
-      final thumbnailFile = await _createThumbnail(newImage);
-      final thumbnailPath = thumbnailFile?.path;
-
       final repository = ref.read(productRepositoryProvider);
+
+      String imagePath = '';
+      String? thumbnailPath;
+
+      // Handle Image Saving
+      if (_image != null) {
+        final appDir = await getApplicationDocumentsDirectory();
+        final fileName = p.basename(_image!.path);
+        final permanentPath = '${appDir.path}/$fileName';
+
+        // Copy to app storage
+        final newImage = await _image!.copy(permanentPath);
+        imagePath = newImage.path;
+
+        // Generate Thumbnail
+        final thumbnailFile = await _createThumbnail(newImage);
+        thumbnailPath = thumbnailFile?.path;
+      }
+
       await repository.addProduct(
         name: _name.text,
         price: double.tryParse(_price.text) ?? 0.0,
         quantity: int.tryParse(_qty.text) ?? 0,
         description: _desc.text,
         category: _selectedCategory!,
-        imagePath: newImage.path,
+        imagePath: imagePath,
         thumbnailPath: thumbnailPath,
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Product saved!')),
-      );
-
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product saved!')),
+        );
+      }
       _resetForm();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving product: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -190,21 +246,31 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // ➡️ Read Gating Service
     final canCustomizeCategory = ref.watch(gatingServiceProvider).canAccessFeature(Feature.categoryCustomization);
+
+    // 🔥 FIX FOR CRASH: PREPARE CATEGORY LIST SAFELY
+    // 1. Create a copy of the categories
+    Set<String> safeCategories = Set.from(_categories);
+
+    // 2. If _selectedCategory has a value (e.g. 'yvg') that isn't in the list,
+    // add it temporarily so the Dropdown doesn't crash.
+    if (_selectedCategory != null && _selectedCategory!.isNotEmpty) {
+      safeCategories.add(_selectedCategory!);
+    }
+
+    // 3. Convert back to list for the UI
+    final dropdownItems = safeCategories.toList();
 
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Product'),
-
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Card(
           elevation: 3,
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Form(
@@ -218,19 +284,19 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // --- NEW CATEGORY DROPDOWN ---
+                  // --- CATEGORY DROPDOWN ---
                   DropdownButtonFormField<String>(
                     value: _selectedCategory,
                     decoration: _modernInputDecoration('Category').copyWith(
                       prefixIcon: const Icon(Icons.category_outlined),
                     ),
                     items: [
-                      ..._categories.map((cat) => DropdownMenuItem(
+                      ...dropdownItems.map((cat) => DropdownMenuItem(
                         value: cat,
                         child: Text(cat),
                       )),
-                      // Conditionally show 'Add new category' based on plan
-                      if (canCustomizeCategory) // ➡️ GATED
+                      // Gated "Add New" Logic
+                      if (canCustomizeCategory)
                         const DropdownMenuItem(
                           value: 'ADD_NEW',
                           child: Row(
@@ -241,7 +307,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                             ],
                           ),
                         )
-                      else // ➡️ Display locked item
+                      else
                         const DropdownMenuItem(
                           value: 'LOCKED',
                           enabled: false,
@@ -259,7 +325,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                         final newCategory = await _showAddCategoryDialog(context);
                         if (newCategory != null && newCategory.isNotEmpty) {
                           await ref.read(settingsRepositoryProvider).addProductCategory(newCategory);
-                          _loadCategories(); // Refresh list
+                          _loadCategories(); // Refresh list from repo
                           setState(() {
                             _selectedCategory = newCategory;
                           });
@@ -268,7 +334,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                         setState(() => _selectedCategory = value);
                       }
                     },
-                    validator: (value) => value == null || value.isEmpty || value == 'LOCKED'
+                    validator: (value) =>
+                    value == null || value.isEmpty || value == 'LOCKED'
                         ? 'Please select a category'
                         : null,
                   ),
@@ -301,14 +368,15 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
+
+                  // --- IMAGE PICKER ---
                   GestureDetector(
-                    onTap: _pickImage,
+                    onTap: () => _showImageSourceModal(context),
                     child: Container(
                       height: 180,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color:
-                        colorScheme.surfaceVariant.withOpacity(0.3),
+                        color: colorScheme.surfaceVariant.withOpacity(0.3),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: colorScheme.outline.withOpacity(0.5),
@@ -318,11 +386,11 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                           ? Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.add_photo_alternate_outlined,
+                          Icon(Icons.add_a_photo_outlined,
                               size: 50, color: colorScheme.outline),
                           const SizedBox(height: 8),
                           Text(
-                            'Tap to select image',
+                            'Tap to add image',
                             style: TextStyle(
                               color: colorScheme.outline,
                               fontSize: 14,
@@ -341,12 +409,15 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _desc,
                     decoration: _modernInputDecoration('Description'),
                     maxLines: 3,
                   ),
                   const SizedBox(height: 24),
+
+                  // --- SAVE BUTTON ---
                   SizedBox(
                     width: double.infinity,
                     height: 50,

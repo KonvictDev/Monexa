@@ -1,4 +1,3 @@
-// Helper for confirmation dialogs
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -34,9 +33,6 @@ Future<void> showConfirmationDialog(
   );
 }
 
-// ---------------------------------------------------------------------
-// Reusable text field builder for all settings screens
-// ---------------------------------------------------------------------
 TextFormField buildSettingsTextField({
   required TextEditingController controller,
   required String label,

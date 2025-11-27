@@ -6,7 +6,6 @@ part 'order.g.dart';
 
 @HiveType(typeId: 1)
 class Order extends HiveObject {
-  // ... existing fields ...
   @HiveField(0)
   late String id;
 
@@ -34,24 +33,20 @@ class Order extends HiveObject {
   @HiveField(8)
   late double discountAmount;
 
-  // --- NEW FIELDS FOR TAX ---
   @HiveField(9)
-  late double taxRate; // The tax rate (e.g., 18.0 for 18%)
+  late double taxRate;
 
   @HiveField(10)
-  late double taxAmount; // The calculated tax amount
+  late double taxAmount;
 
   @HiveField(11)
   late String invoiceNumber;
 
-  // --- END NEW FIELDS ---
-
-  // ... existing constructor ...
   Order({
     required this.id,
     required this.customerName,
     required this.items,
-    required this.totalAmount, // Final amount
+    required this.totalAmount,
     required this.orderDate,
     required this.paymentMethod,
     this.comments = '',
@@ -59,7 +54,7 @@ class Order extends HiveObject {
     this.discountAmount = 0.0,
     required this.taxRate, // Added
     required this.taxAmount, // Added
-    required this.invoiceNumber, // <-- ADD THIS
+    required this.invoiceNumber,
   });
 
   // --- NEW METHOD FOR FIRESTORE SYNC ---
@@ -68,7 +63,7 @@ class Order extends HiveObject {
       'id': id,
       'invoiceNumber': invoiceNumber,
       'customerName': customerName,
-      'orderDate': orderDate.toIso8601String(), // Convert DateTime to String
+      'orderDate': orderDate.toIso8601String(),
       'paymentMethod': paymentMethod,
       'subtotal': subtotal,
       'discountAmount': discountAmount,
@@ -81,10 +76,6 @@ class Order extends HiveObject {
       'lastSynced': FieldValue.serverTimestamp(),
     };
   }
-
-  // lib/model/order.dart
-
-// ... existing code ...
 
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
@@ -104,4 +95,3 @@ class Order extends HiveObject {
     );
   }
 }
-// -------------------------------------

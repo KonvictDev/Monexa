@@ -1,8 +1,7 @@
-// lib/model/customer.dart
 import 'package:hive/hive.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // <-- ADD THIS
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-part 'customer.g.dart'; // We will generate this file
+part 'customer.g.dart';
 
 @HiveType(typeId: 4)
 class Customer extends HiveObject {

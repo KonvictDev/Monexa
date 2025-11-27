@@ -371,7 +371,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             _settingTile(
               context,
-              icon: Icons.monetization_on_rounded,
+              icon: Icons.currency_rupee_rounded,
               title: 'Financial Defaults',
               subtitle: 'Set default tax rate and currency.',
               onTap: () => Navigator.push(

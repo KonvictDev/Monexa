@@ -14,7 +14,7 @@ import '../../model/order_item.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/product_search_provider.dart';
 import '../../repositories/settings_repository.dart';
-import '../../utils/date_filter.dart';
+import '../../utils/constants.dart';
 import '../../widgets/upgrade_snackbar.dart';
 
 import '../../widgets/customer_selection_modal.dart';
@@ -96,99 +96,113 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     final cart = ref.watch(cartProvider);
     final productSearch = ref.watch(productSearchProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('New Order'),
-        actions: [
-          TextButton.icon(
-            onPressed: _showCustomerModal,
-            icon: const Icon(Icons.person_outline),
-            label: Text(
-              cart.customerName,
-              style: const TextStyle(fontSize: 16),
-              overflow: TextOverflow.ellipsis,
+    // 1. Wrap the entire Scaffold in a GestureDetector to detect taps on the background
+    return GestureDetector(
+      onTap: () {
+        // This hides the keyboard when tapping outside the text field
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('New Order'),
+          actions: [
+            TextButton.icon(
+              onPressed: _showCustomerModal,
+              icon: const Icon(Icons.person_outline),
+              label: Text(
+                cart.customerName,
+                style: const TextStyle(fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
+                maximumSize: const Size(180, 100),
+              ),
             ),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.onSurface,
-              maximumSize: const Size(180, 100),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search products...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    ref.read(productSearchProvider.notifier).filterProducts('');
-                  },
-                )
-                    : null,
-                filled: true,
-                fillColor:
-                Theme.of(context).colorScheme.surfaceContainerHighest,
-                contentPadding: EdgeInsets.zero,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                  borderSide: BorderSide.none,
+            const SizedBox(width: 8),
+          ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(kToolbarHeight),
+            child: Padding(
+              padding:
+              const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search products...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      ref
+                          .read(productSearchProvider.notifier)
+                          .filterProducts('');
+                    },
+                  )
+                      : null,
+                  filled: true,
+                  fillColor:
+                  Theme.of(context).colorScheme.surfaceContainerHighest,
+                  contentPadding: EdgeInsets.zero,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-      body: Builder(
-        builder: (context) {
-          final filteredProducts = productSearch.filteredProducts;
-          final String searchQuery = productSearch.searchQuery;
+        body: Builder(
+          builder: (context) {
+            final filteredProducts = productSearch.filteredProducts;
+            final String searchQuery = productSearch.searchQuery;
 
-          if (filteredProducts.isEmpty && searchQuery.isEmpty) {
-            return const Center(
-              child: Text('No products in inventory.'),
-            );
-          }
-
-          if (filteredProducts.isEmpty && searchQuery.isNotEmpty) {
-            return const Center(
-              child: Text('No products found for your search.'),
-            );
-          }
-
-          return GridView.builder(
-            padding: const EdgeInsets.all(8.0),
-            itemCount: filteredProducts.length,
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 150.0,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 0.9,
-            ),
-            itemBuilder: (context, index) {
-              final product = filteredProducts[index];
-              return _ProductTile(
-                product: product,
-                onTap: () => _addToCart(product),
+            if (filteredProducts.isEmpty && searchQuery.isEmpty) {
+              return const Center(
+                child: Text('No products in inventory.'),
               );
-            },
-          );
-        },
-      ),
-      bottomNavigationBar: _CartFooter(
-        cart: cart.cart,
-        total: cart.finalTotal,
-        onCheckout: () => _showCartDialog(context),
-        onViewCart: () => _showCartDialog(context),
-        // checkoutKey: _keys.checkoutButtonKey, // Removed
-        // onShowcaseComplete: () {}, // Removed
+            }
+
+            if (filteredProducts.isEmpty && searchQuery.isNotEmpty) {
+              return const Center(
+                child: Text('No products found for your search.'),
+              );
+            }
+
+            return GridView.builder(
+              padding: const EdgeInsets.all(8.0), // Increased padding
+              itemCount: filteredProducts.length,
+              // 2. Optimization: Dismiss keyboard immediately when user drags the list
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              // 🔥 CHANGE: Fixed 2 columns, taller aspect ratio for rectangular look
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 1, // Lower number = Taller rectangle
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemBuilder: (context, index) {
+                final product = filteredProducts[index];
+                return _ProductTile(
+                  product: product,
+                  onTap: () {
+                    FocusScope.of(context).unfocus();
+                    _addToCart(product);
+                  },
+                );
+              },
+            );
+          },
+        ),
+        bottomNavigationBar: _CartFooter(
+          cart: cart.cart,
+          total: cart.finalTotal,
+          onCheckout: () => _showCartDialog(context),
+          onViewCart: () => _showCartDialog(context),
+        ),
       ),
     );
   }
@@ -523,7 +537,11 @@ class _ProductTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final bool outOfStock = product.quantity <= 0;
+
+    // --- Existing Image Logic (Preserved) ---
     String? imagePathToShow = product.thumbnailPath;
     File? imageFile;
 
@@ -545,87 +563,142 @@ class _ProductTile extends StatelessWidget {
         imagePathToShow = null;
       }
     }
+    // ----------------------------------------
 
     return InkWell(
       onTap: outOfStock ? null : onTap,
-      child: Card(
-        color: outOfStock ? Colors.grey.shade200 : Theme.of(context).cardColor,
-        elevation: outOfStock ? 0 : 2,
-        child: Padding(
-          padding: const EdgeInsets.all(4.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      imageFile != null
-                          ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          imageFile,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.broken_image, size: 50, color: Colors.grey);
-                          },
-                        ),
-                      )
-                          : Icon(Icons.bakery_dining_rounded,
-                          size: 50,
-                          color: outOfStock
-                              ? Colors.grey
-                              : Theme.of(context).colorScheme.primary),
-                      if (outOfStock)
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          alignment: Alignment.center,
-                          child: const Icon(Icons.block,
-                              color: Colors.white, size: 30),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Column(
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.cardColor,
+          borderRadius: BorderRadius.circular(16),
+          // Subtle shadow for depth
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(
+            color: colorScheme.outlineVariant.withOpacity(0.5),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. IMAGE SECTION (Takes up more space)
+            Expanded(
+              flex: 2,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  Text(
-                    product.name,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                    child: imageFile != null
+                        ? Image.file(
+                      imageFile,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(Icons.broken_image,
+                            size: 40, color: colorScheme.outline);
+                      },
+                    )
+                        : Container(
+                      color: colorScheme.surfaceContainerHighest,
+                      child: Icon(Icons.bakery_dining_rounded,
+                          size: 40, color: colorScheme.primary),
+                    ),
                   ),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      '₹${product.price.toStringAsFixed(2)}',
-                      style: TextStyle(
-                          color: Colors.green.shade700,
+                  // Out of stock overlay
+                  if (outOfStock)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        "SOLD OUT",
+                        style: TextStyle(
+                          color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 14),
+                          letterSpacing: 1.2,
+                        ),
+                      ),
                     ),
-                  ),
-                  Text(
-                    outOfStock ? 'SOLD OUT' : 'Stock: ${product.quantity}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: outOfStock ? Colors.red : Colors.grey,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 10,
-                    ),
-                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+
+            // 2. DETAILS SECTION
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Name
+                    Text(
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+
+                    // Price and Stock Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '₹${product.price.toStringAsFixed(2)}',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              outOfStock ? 'No Stock' : '${product.quantity} left',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: outOfStock ? colorScheme.error : colorScheme.outline,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // Add Button Visual
+                        if (!outOfStock)
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.add,
+                              size: 18,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

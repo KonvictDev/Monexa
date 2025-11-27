@@ -6,7 +6,7 @@ import '../model/product.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/gating_service.dart';
 import '../services/remote_config_service.dart';
-import '../utils/date_filter.dart'; // ➡️ Import Gating Service
+import '../utils/constants.dart'; // ➡️ Import Gating Service
 
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
   // ➡️ MODIFICATION 1: Pass Ref to the constructor.

@@ -1,5 +1,3 @@
-// SettingsRepository.dart
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -14,7 +12,7 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
 class SettingsRepository {
   final Box _settingsBox;
   final Ref _ref;
-  static const _productCategoriesKey = 'productCategories';
+  static const _productCategoriesKey = 'category';
 
   // Removed showcase flow keys
 
@@ -28,9 +26,53 @@ class SettingsRepository {
     return 'INV-${currentCounter.toString().padLeft(6, '0')}';
   }
 
-  // --- Category Methods ---
+  // lib/repositories/settings_repository.dart
+
+  // ... inside SettingsRepository class ...
+
+  Future<void> mergeCategories(List<String> newCategories) async {
+    // 1. Get current
+    final currentRaw = _settingsBox.get('categories');
+    List<String> currentList = [];
+
+    if (currentRaw != null) {
+      currentList = List<String>.from(currentRaw);
+    } else {
+      currentList = ['General'];
+    }
+
+    // 2. Merge unique
+    final Set<String> uniqueSet = {...currentList, ...newCategories};
+
+    // 3. Save
+    await _settingsBox.put('categories', uniqueSet.toList());
+    print("DEBUG: Categories merged and saved: $uniqueSet");
+  }
+
   List<String> getProductCategories() {
-    return _settingsBox.get(_productCategoriesKey, defaultValue: <String>[]);
+    // 1. Get raw data
+    final dynamic rawData = _settingsBox.get('categories');
+
+    // 🔥 DEBUG PRINT: See exactly what is in the box
+    print("--------------------------------------------------");
+    print("DEBUG: fetching categories from Hive 'settings' box");
+    print("DEBUG: Raw Data found: $rawData");
+
+    if (rawData == null) {
+      print("DEBUG: Data is null, returning defaults");
+      return ['General'];
+    }
+
+    try {
+      // 2. Safely cast
+      final List<String> result = List<String>.from(rawData);
+      print("DEBUG: Successfully cast to List<String>: $result");
+      print("--------------------------------------------------");
+      return result;
+    } catch (e) {
+      print("DEBUG: Error casting categories: $e");
+      return ['General']; // Fallback
+    }
   }
 
   Future<void> addProductCategory(String category) async {
@@ -66,28 +108,4 @@ class SettingsRepository {
     await _ref.read(expenseRepositoryProvider).clearAll();
     await _settingsBox.clear();
   }
-
-  // Removed showcase helper methods and getters:
-  // setShowcaseStepComplete, hasSeenShowcase, shouldShowManagementHubShowcase, etc.
-
-  // Placeholder for showcase helpers to avoid dependent errors elsewhere,
-  // but logically removed. If these are used by other files, replace them
-  // with simple non-showcase defaults.
-
-  // Re-adding the minimal structure needed by other files:
-  static const showcaseFlow1 = 'showcase_management_tap';
-  static const showcaseFlow2 = 'showcase_product_add';
-  static const showcaseFlow3 = 'showcase_billing_start';
-  static const showcaseFlow4 = 'showcase_billing_checkout';
-  static const showcaseFlow5 = 'showcase_billing_confirm';
-
-  // These dummy getters prevent errors in the cleaned files above, assuming
-  // they were only used for showcase flow control.
-  bool get shouldShowManagementHubShowcase => false;
-  bool get shouldShowProductAddShowcase => false;
-  bool get shouldShowBillingStartShowcase => false;
-  bool get shouldShowBillingCheckoutShowcase => false;
-  bool get shouldShowBillingConfirmShowcase => false;
-  bool get isAnyShowcaseActive => false;
-  Future<void> setShowcaseStepComplete(String key) async {}
 }
