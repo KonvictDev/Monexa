@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:intl/intl.dart';
 import 'product_repository.dart';
 import 'order_repository.dart';
 import 'expense_repository.dart';
@@ -84,7 +85,59 @@ class SettingsRepository {
     }
   }
 
+  bool get isStaffMode => get<bool>('is_staff_mode', defaultValue: false);
   // --- Generic Getters/Setters ---
+  Future<void> setStaffMode(bool value) async {
+    await put('is_staff_mode', value);
+  }
+
+  // ✅ NEW: Low Stock Threshold Logic
+  int get lowStockThreshold => get<int>('low_stock_limit', defaultValue: 5);
+
+  Future<void> setLowStockThreshold(int value) async {
+    await put('low_stock_limit', value);
+  }
+
+  // ✅ NEW: Sync Rate Limiting Logic
+  bool canSync(int limit) {
+    final String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final String lastSyncDate = get<String>('last_sync_date_tracker', defaultValue: '');
+
+    // If it's a new day, reset the counter
+    if (lastSyncDate != today) {
+      put('last_sync_date_tracker', today);
+      put('daily_sync_count', 0);
+      return true; // Count is 0, so allowed
+    }
+
+    final int currentCount = get<int>('daily_sync_count', defaultValue: 0);
+    return currentCount < limit;
+  }
+
+  Future<void> incrementSyncCount() async {
+    final int currentCount = get<int>('daily_sync_count', defaultValue: 0);
+    await put('daily_sync_count', currentCount + 1);
+
+    // Also update "Last Synced Time" for display
+    await put('last_successful_sync_time', DateTime.now().toIso8601String());
+  }
+
+  DateTime? getLastSyncTime() {
+    final String? str = _settingsBox.get('last_successful_sync_time');
+    if (str == null) return null;
+    return DateTime.tryParse(str);
+  }
+
+  int getRemainingSyncs(int limit) {
+    final int currentCount = get<int>('daily_sync_count', defaultValue: 0);
+    // Safety check if new day logic hasn't run yet
+    final String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final String lastSyncDate = get<String>('last_sync_date_tracker', defaultValue: '');
+    if (lastSyncDate != today) return limit;
+
+    return (limit - currentCount).clamp(0, limit);
+  }
+
   T get<T>(String key, {required T defaultValue}) {
     return _settingsBox.get(key, defaultValue: defaultValue);
   }

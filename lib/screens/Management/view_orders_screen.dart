@@ -6,7 +6,8 @@ import 'package:intl/intl.dart';
 import '../../model/order.dart';
 import '../../repositories/order_repository.dart';
 import '../../services/gating_service.dart';
-import '../../utils/constants.dart'; // ➡️ Import Gating Service
+import '../../utils/constants.dart';
+import '../../widgets/upgrade_snackbar.dart'; // ➡️ Import Gating Service
 
 // 1. Convert to ConsumerStatefulWidget
 class ViewOrdersScreen extends ConsumerStatefulWidget {
@@ -38,11 +39,8 @@ class _ViewOrdersScreenState extends ConsumerState<ViewOrdersScreen> {
     super.dispose();
   }
 
-  // ➡️ Helper to show Pro modal
   void _showUpgradeModal() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Advanced filtering requires Monexa Pro.')),
-    );
+    showUpgradeSnackbar(context, 'Advanced filtering requires Monexa Pro.');
   }
 
   // 2. Add Date Range Picker
@@ -312,7 +310,7 @@ class _ViewOrdersScreenState extends ConsumerState<ViewOrdersScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         // ➡️ Gated via _selectDateRange method call
-                        onPressed: _selectDateRange,
+                        onPressed: isPro ? _selectDateRange : _showUpgradeModal,
                         icon: isPro
                             ? const Icon(Icons.calendar_today_outlined)
                             : const Icon(Icons.lock_outline),

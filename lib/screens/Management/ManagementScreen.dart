@@ -11,6 +11,7 @@ import '../../main_navigation_screen.dart';
 import 'add_product_screen.dart';
 import 'customer_list_screen.dart';
 import 'expense_screen.dart';
+import 'low_stock_screen.dart';
 
 class ManagementHubScreen extends ConsumerWidget {
   ManagementHubScreen({super.key});
@@ -64,6 +65,12 @@ class ManagementHubScreen extends ConsumerWidget {
         icon: Icons.people_alt_rounded,
         color: Colors.purple,
         screen: const CustomerListScreen(),
+      ),
+      _MenuItem(
+        title: 'Shopping List',
+        icon: Icons.shopping_basket_rounded,
+        color: Colors.pink,
+        screen: const LowStockScreen(),
       ),
     ];
 

@@ -5,7 +5,8 @@ import '../../model/customer.dart';
 import '../../repositories/customer_repository.dart';
 import '../../utils/constants.dart';
 import '../../utils/settings_utils.dart';
-import '../../services/gating_service.dart'; // ➡️ Import Gating Service
+import '../../services/gating_service.dart';
+import '../../widgets/upgrade_snackbar.dart'; // ➡️ Import Gating Service
 
 class CustomerEditScreen extends ConsumerStatefulWidget {
   final Customer? customer;
@@ -47,9 +48,7 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
   }
 
   void _showUpgradeModal(String action) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Customer $action requires Monexa Pro.')),
-    );
+    showUpgradeSnackbar(context, 'Customer $action requires Monexa Pro.');
   }
 
   Future<void> _saveCustomer() async {
@@ -215,7 +214,7 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
                     if (_isEditing)
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: canManage ? _deleteCustomer : null,
+                          onPressed: canManage ? _deleteCustomer : () => _showUpgradeModal('deletion'),
                           icon: Icon(Icons.delete_outline, color: canManage ? Colors.red : Colors.grey),
                           label: const Text('Delete'),
                           style: OutlinedButton.styleFrom(
@@ -228,7 +227,7 @@ class _CustomerEditScreenState extends ConsumerState<CustomerEditScreen> {
                     Expanded(
                       child: ElevatedButton.icon(
                         // Save button is only enabled if: 1. Adding a new customer (gated above) or 2. Editing existing (and they can manage)
-                        onPressed: canManage ? _saveCustomer : null,
+                        onPressed: canManage ? _saveCustomer : () => _showUpgradeModal(_isEditing ? 'editing' : 'creation'),
                         icon: Icon(Icons.save, color: canManage ? Colors.white : Colors.grey.shade600),
                         label: Text(_isEditing ? 'Save Changes' : 'Add Customer'),
                         style: ElevatedButton.styleFrom(

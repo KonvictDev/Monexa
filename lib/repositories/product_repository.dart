@@ -83,6 +83,10 @@ class ProductRepository {
         .toList();
   }
 
+  List<Product> getLowStockProducts({int threshold = 5}) {
+    return _productBox.values.where((p) => p.quantity < threshold).toList();
+  }
+
   List<Product> getRecentProducts({int limit = 30}) {
     return _productBox.values.take(limit).toList();
   }

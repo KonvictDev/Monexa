@@ -15,9 +15,11 @@ class ProductSearchProvider with ChangeNotifier {
   List<Product> _initialProducts = []; // Holds the 30 default products
   List<Product> _filteredProducts = [];
   String _searchQuery = '';
+  String? _selectedCategory; // ADDED: Tracks selected category
 
   List<Product> get filteredProducts => _filteredProducts;
   String get searchQuery => _searchQuery;
+  String? get selectedCategory => _selectedCategory; // ADDED: Getter
 
   ProductSearchProvider(this._ref) {
     _productRepo = _ref.read(productRepositoryProvider);
@@ -30,7 +32,6 @@ class ProductSearchProvider with ChangeNotifier {
     _onDataChanged();
   }
 
-  /// 3. CREATE _onDataChanged
   /// Called on init and when the product box changes.
   void _onDataChanged() {
     // Load the 30 "default" products
@@ -39,25 +40,43 @@ class ProductSearchProvider with ChangeNotifier {
     _runFilter();
   }
 
-  /// Public method for the UI to call
+  /// Public method for the UI to call for text search
   void filterProducts(String query) {
     _searchQuery = query.toLowerCase();
     _runFilter();
   }
 
-  /// 4. UPDATE _runFilter LOGIC
+  /// ADDED: Public method for the UI to call for category filtering
+  void setCategoryFilter(String? category) {
+    _selectedCategory = (category == 'All Categories' || category == 'All') ? null : category;
+    _runFilter();
+  }
+
+  /// UPDATE _runFilter LOGIC TO HANDLE BOTH
   void _runFilter() {
+    Iterable<Product> baseList;
+
     if (_searchQuery.isEmpty) {
-      // If search is empty, show the 30 default products
-      _filteredProducts = _initialProducts;
+      if (_selectedCategory != null) {
+        // If a category is selected, search ALL products, not just the recent 30
+        baseList = _productRepo.getAllProducts().where((p) => p.category == _selectedCategory);
+      } else {
+        // If search is empty and no category is selected, show the 30 default products
+        baseList = _initialProducts;
+      }
     } else {
       // If search is not empty, run the efficient query
-      _filteredProducts = _productRepo.searchProducts(_searchQuery);
+      baseList = _productRepo.searchProducts(_searchQuery);
+      // Apply category filter on top if it exists
+      if (_selectedCategory != null) {
+        baseList = baseList.where((p) => p.category == _selectedCategory);
+      }
     }
+
+    _filteredProducts = baseList.toList();
     notifyListeners();
   }
 
-  /// 5. ADD dispose() BACK
   @override
   void dispose() {
     _productRepo.getListenable().removeListener(_onDataChanged);

@@ -2,7 +2,7 @@ name: billing
 description: "A new Flutter project for managing billing and sales."
 publish_to: 'none'
 
-version: 1.0.0+5
+version: 1.0.0+6
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -45,6 +45,7 @@ dependencies:
   firebase_remote_config: ^5.5.0
   firebase_messaging: ^15.2.10
   flutter_local_notifications: ^19.5.0
+  firebase_app_check: ^0.3.2+10
 
   # ------------------------------------------------------------
   # 📄 File Operations / Printing / Sharing

@@ -11,6 +11,7 @@ import '../../widgets/metric_grid.dart';
 import '../../widgets/sales_chart.dart';
 import '../../widgets/summary_table.dart';
 import '../../utils/constants.dart';
+import '../../widgets/upgrade_snackbar.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -41,8 +42,7 @@ class HomeScreen extends ConsumerWidget {
     Future<void> _exportData() async {
       // ➡️ GATING CHECK
       if (!gatingService.canAccessFeature(Feature.dataExport)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Data Export requires Monexa Pro.')));
+        showUpgradeSnackbar(context, 'Data Export requires Monexa Pro.');
         return;
       }
 

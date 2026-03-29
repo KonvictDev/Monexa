@@ -5,7 +5,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:firebase_remote_config/firebase_remote_config.dart'; // New Import
+
+import '../providers/user_profile_providers.dart';
 
 // Provider to track if verification is currently running
 final isProcessingPurchaseProvider = StateProvider<bool>((ref) => false);
@@ -28,18 +29,12 @@ class InAppBillingService {
     return await _iap.isAvailable();
   }
 
-  // New function to dynamically fetch product IDs from Remote Config
   Future<Set<String>> _fetchProductIdsFromRemoteConfig() async {
-
     final String idsString = _remoteConfigService.subscriptionProductList;
-
     if (idsString.isEmpty) return {};
-
-    // Split the comma-separated string and convert to a Set
     return idsString.split(',').map((id) => id.trim()).toSet();
   }
 
-  // Updated to use dynamic product IDs
   Future<List<ProductDetails>> fetchProducts() async {
     final bool available = await _iap.isAvailable();
     if (!available) return [];
@@ -76,57 +71,75 @@ class InAppBillingService {
     );
   }
 
-  void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) {
+    Future<void> _listenToPurchaseUpdated(
+      List<PurchaseDetails> purchaseDetailsList) async {
     for (final purchase in purchaseDetailsList) {
       if (purchase.status == PurchaseStatus.pending) {
-        // Show progress indicator in UI
+        _ref.read(isProcessingPurchaseProvider.notifier).state = true;
       } else {
         if (purchase.status == PurchaseStatus.error) {
           debugPrint('Purchase Error: ${purchase.error!.message}');
-          // Ensure processing is released on error
           _ref.read(isProcessingPurchaseProvider.notifier).state = false;
         } else if (purchase.status == PurchaseStatus.purchased ||
             purchase.status == PurchaseStatus.restored) {
-          _verifyPurchaseOnServer(purchase);
-        }
 
-        // Always complete the purchase on the client side
-        if (purchase.pendingCompletePurchase) {
-          _iap.completePurchase(purchase);
+          // 🔥 CRITICAL FIX: Verify FIRST, then Complete.
+          final bool isValid = await _verifyPurchaseOnServer(purchase);
+
+          if (isValid) {
+            _ref.invalidate(userProfileStreamProvider);
+            if (purchase.pendingCompletePurchase) {
+              await _iap.completePurchase(purchase);
+              debugPrint("Purchase completed and acknowledged.");
+            }
+          } else {
+            debugPrint("Server verification failed. NOT completing purchase.");
+            // Do NOT complete purchase. This allows the user to try "Restore" again
+            // without being charged double, or triggers a refund eventually.
+          }
         }
       }
     }
   }
 
-  // Server-Side Validation
-  void _verifyPurchaseOnServer(PurchaseDetails purchase) async {
+  // 🔥 UPDATED: Returns Future<bool> to indicate success/failure
+  Future<bool> _verifyPurchaseOnServer(PurchaseDetails purchase) async {
     _ref.read(isProcessingPurchaseProvider.notifier).state = true;
 
     try {
       final String token = purchase.verificationData.serverVerificationData;
       final String source = Platform.isIOS ? 'app_store' : 'google_play';
 
+      debugPrint("Verifying purchase for: ${purchase.productID}");
+
       // Call the deployed Firebase Cloud Function
-      await FirebaseFunctions.instance.httpsCallable('verifySubscription').call({
+      await FirebaseFunctions.instance
+          .httpsCallable('verifySubscription')
+          .call({
         'purchaseToken': token,
         'productId': purchase.productID,
         'source': source,
       });
 
+      debugPrint("Server verification SUCCESS.");
+      return true;
     } catch (e) {
       debugPrint('SERVER VALIDATION FAILED: $e');
+      // Optional: Show a snackbar to the user via a global key or provider state
+      return false;
     } finally {
       _ref.read(isProcessingPurchaseProvider.notifier).state = false;
     }
   }
 
-  // Method to initiate the purchase
   Future<void> buySubscription(ProductDetails product) async {
     if (_ref.read(isProcessingPurchaseProvider)) {
       debugPrint('Purchase already processing. Blocking buy.');
       return;
     }
     final PurchaseParam purchaseParam = PurchaseParam(productDetails: product);
+
+    // For Android, this usually opens the Google Pay sheet
     await _iap.buyNonConsumable(purchaseParam: purchaseParam);
   }
 

@@ -1,12 +1,6 @@
-// lib/widgets/upgrade_snackbar.dart
-
 import 'package:flutter/material.dart';
 import '../screens/subscription/subscription_screen.dart';
 
-/**
- * A reusable SnackBar dedicated to prompting the user to upgrade to Monexa Pro
- * when they hit a freemium limit.
- */
 void showUpgradeSnackbar(BuildContext context, String message) {
   final theme = Theme.of(context);
 

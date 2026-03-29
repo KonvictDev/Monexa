@@ -3,6 +3,7 @@ import 'package:billing/services/receipt_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // 1. IMPORT
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../model/order.dart';
 
@@ -14,6 +15,31 @@ class OrderSuccessScreen extends ConsumerWidget {
   // final ReceiptService _receiptService = ReceiptService();
 
   const OrderSuccessScreen({super.key, required this.order});
+
+  Future<void> _shareOnWhatsApp(BuildContext context) async {
+    final buffer = StringBuffer();
+    buffer.writeln("🧾 *Order Summary*");
+    buffer.writeln("Inv: ${order.invoiceNumber}");
+    buffer.writeln("----------------");
+
+    for (var item in order.items) {
+      buffer.writeln("${item.quantity} x ${item.name}");
+    }
+
+    buffer.writeln("----------------");
+    buffer.writeln("Total: ₹${order.totalAmount.toStringAsFixed(2)}");
+    buffer.writeln("Thank you! 😊");
+
+    final text = Uri.encodeComponent(buffer.toString());
+    final url = Uri.parse("https://wa.me/?text=$text");
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      // Fallback if WhatsApp not installed
+      Share.share(buffer.toString());
+    }
+  }
 
   // 4. ADD WidgetRef ref
   @override
@@ -59,6 +85,19 @@ class OrderSuccessScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  icon: const Icon(Icons.chat_bubble_outline_rounded), // Or WhatsApp icon asset
+                  label: const Text('Share on WhatsApp'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: const Color(0xFF25D366), // WhatsApp Green
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => _shareOnWhatsApp(context),
+                ),
+              ),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(

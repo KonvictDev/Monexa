@@ -5,7 +5,8 @@ import 'package:intl/intl.dart';
 import '../../repositories/settings_repository.dart';
 import '../../utils/constants.dart';
 import '../../utils/settings_utils.dart';
-import '../../services/gating_service.dart'; // ➡️ Import Gating Service
+import '../../services/gating_service.dart';
+import '../../widgets/upgrade_snackbar.dart'; // ➡️ Import Gating Service
 
 class ReceiptSettingsScreen extends ConsumerStatefulWidget {
   const ReceiptSettingsScreen({super.key});
@@ -50,9 +51,7 @@ class _ReceiptSettingsScreenState
   }
 
   void _showUpgradeModal() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Receipt Customization requires Monexa Pro.')),
-    );
+    showUpgradeSnackbar(context, 'Receipt Customization requires Monexa Pro.');
   }
 
 
@@ -301,7 +300,7 @@ class _ReceiptSettingsScreenState
           ),
           IconButton(
             icon: canCustomize ? const Icon(Icons.save_rounded) : const Icon(Icons.lock_outline), // ➡️ Visual indicator
-            onPressed: _saveSettings,
+            onPressed: canCustomize ? _saveSettings : _showUpgradeModal,
           ),
         ],
       ),
@@ -324,7 +323,13 @@ class _ReceiptSettingsScreenState
                       'Displays your business tax number at the top (if provided).',
                     ),
                     value: _showTaxId,
-                    onChanged: canCustomize ? (v) => setState(() => _showTaxId = v) : null, // ➡️ GATED
+                    onChanged: (v) {
+                      if (canCustomize) {
+                        setState(() => _showTaxId = v);
+                      } else {
+                        _showUpgradeModal();
+                      }
+                    },// ➡️ GATED
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
@@ -333,7 +338,13 @@ class _ReceiptSettingsScreenState
                       'Shows the discount line on receipts (if discount > 0).',
                     ),
                     value: _showDiscount,
-                    onChanged: canCustomize ? (v) => setState(() => _showDiscount = v) : null, // ➡️ GATED
+                    onChanged: (v) {
+                      if (canCustomize) {
+                        setState(() => _showDiscount = v);
+                      } else {
+                        _showUpgradeModal();
+                      }
+                    },
                   ),
                 ],
               ),
@@ -347,14 +358,18 @@ class _ReceiptSettingsScreenState
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: AbsorbPointer( // ➡️ Prevent input if locked
-                  absorbing: !canCustomize,
-                  child: buildSettingsTextField(
-                    controller: _footerController,
-                    label: 'Custom Footer Message',
-                    icon: Icons.notes_rounded,
-                    maxLines: 3,
-                    onChanged: canCustomize ? (_) => setState(() {}) : null, // Only rebuild/track if unlocked
+                child: GestureDetector(
+                  // 🔥 UPDATED: Catch taps on the text field when locked
+                  onTap: !canCustomize ? _showUpgradeModal : null,
+                  child: AbsorbPointer(
+                    absorbing: !canCustomize,
+                    child: buildSettingsTextField(
+                      controller: _footerController,
+                      label: 'Custom Footer Message',
+                      icon: Icons.notes_rounded,
+                      maxLines: 3,
+                      onChanged: canCustomize ? (_) => setState(() {}) : null,
+                    ),
                   ),
                 ),
               ),
@@ -373,7 +388,7 @@ class _ReceiptSettingsScreenState
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                onPressed: _saveSettings,
+                onPressed: canCustomize ? _saveSettings : _showUpgradeModal,
               ),
             ),
           ],

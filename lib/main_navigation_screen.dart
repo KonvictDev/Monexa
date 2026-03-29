@@ -1,5 +1,3 @@
-// MainNavigationScreen.dart
-
 import 'package:billing/screens/Management/ManagementScreen.dart';
 import 'package:billing/screens/billing/billing_screen.dart';
 import 'package:billing/screens/home/home_screen.dart';
@@ -9,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:billing/repositories/settings_repository.dart';
+// ✅ IMPORT STAFF DASHBOARD
+import 'package:billing/screens/staff/staff_dashboard_screen.dart';
 
 class MainNavigationScreen extends ConsumerStatefulWidget {
   const MainNavigationScreen({super.key});
@@ -22,44 +22,43 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
 
-  final List<String> _tabLabels = const [
-    'Home',
-    'Manage',
-    'New Order',
-    'Settings',
-  ];
-
-  final List<Widget> _pages = [
+  // --- CONFIG: Owner Mode ---
+  final List<Widget> _ownerPages = [
     const HomeScreen(),
     ManagementHubScreen(),
+    const BillingScreen(), // Placeholder, overridden by onTap
     const SettingsScreen(),
   ];
-
-  // 🔥 UPDATED: Changed from List<List<IconData>> to List<List<dynamic>>
-  // to support both Strings (Assets) and IconData.
-  // Index 0: Inactive, Index 1: Active
-  final List<List<dynamic>> _icons = const [
-    ['assets/icons/home_outline.png', 'assets/icons/home_filled.png'], // Custom Images
-    ['assets/icons/manage_outline.png', 'assets/icons/manage_filled.png'], // Material Icons
-    ['assets/icons/billing_filled.png', 'assets/icons/billing_filled.png'], // Material Icons
-    ['assets/icons/settings_outline.png', 'assets/icons/settings_filled.png'], // Material Icons
+  final List<List<dynamic>> _ownerIcons = const [
+    ['assets/icons/home_outline.png', 'assets/icons/home_filled.png'],
+    ['assets/icons/manage_outline.png', 'assets/icons/manage_filled.png'],
+    ['assets/icons/billing_filled.png', 'assets/icons/billing_filled.png'],
+    ['assets/icons/settings_outline.png', 'assets/icons/settings_filled.png'],
   ];
+  final List<String> _ownerLabels = const ['Home', 'Manage', 'New Order', 'Settings'];
 
-  final Map<int, int> _tabIndexToPageIndex = const {
-    0: 0,
-    1: 1,
-    3: 2,
-  };
+  // --- CONFIG: Staff Mode ---
+  final List<Widget> _staffPages = [
+    const StaffDashboardScreen(), // Tab 0
+    const BillingScreen(),        // Tab 1 (Placeholder)
+  ];
+  // Using simplified icons for Staff
+  final List<List<dynamic>> _staffIcons = const [
+    [Icons.dashboard_outlined, Icons.dashboard_rounded],
+    [Icons.add_shopping_cart_rounded, Icons.add_shopping_cart_rounded],
+  ];
+  final List<String> _staffLabels = const ['Dashboard', 'New Order'];
 
-  @override
-  void initState() {
-    super.initState();
-  }
 
-  void _onItemTapped(int index) {
+  void _onItemTapped(int index, bool isStaffMode) {
     HapticFeedback.selectionClick();
 
-    if (index == 2) {
+    // Logic: If it's the "New Order" button, push the full screen
+    // Owner Mode: Index 2 is New Order
+    // Staff Mode: Index 1 is New Order
+    final bool isNewOrderAction = (!isStaffMode && index == 2) || (isStaffMode && index == 1);
+
+    if (isNewOrderAction) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const BillingScreen()),
@@ -71,28 +70,39 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
 
   @override
   Widget build(BuildContext context) {
-    final int pageIndex = _tabIndexToPageIndex[_selectedIndex]!;
+    // 1. Check Mode
+    final isStaffMode = ref.watch(settingsRepositoryProvider).isStaffMode;
+
+    // 2. Select Configuration
+    final currentPages = isStaffMode ? _staffPages : _ownerPages;
+    final currentIcons = isStaffMode ? _staffIcons : _ownerIcons;
+    final currentLabels = isStaffMode ? _staffLabels : _ownerLabels;
+
+    // 3. Safety Check: If switching modes reduces tab count, reset index
+    if (_selectedIndex >= currentPages.length) {
+      _selectedIndex = 0;
+    }
 
     return Scaffold(
       extendBody: true,
       body: IndexedStack(
-        index: pageIndex,
-        children: _pages,
+        index: _selectedIndex,
+        children: currentPages,
       ),
       bottomNavigationBar: _PillBottomNavBar(
         selectedIndex: _selectedIndex,
-        onItemTapped: _onItemTapped,
-        icons: _icons,
-        labels: _tabLabels,
+        onItemTapped: (idx) => _onItemTapped(idx, isStaffMode),
+        icons: currentIcons,
+        labels: currentLabels,
       ),
     );
   }
 }
 
+// ... [Keep _PillBottomNavBar class exactly as it is] ...
 class _PillBottomNavBar extends ConsumerWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
-  // 🔥 UPDATED: Now accepts dynamic to allow Strings or IconData
   final List<List<dynamic>> icons;
   final List<String> labels;
 
@@ -129,8 +139,6 @@ class _PillBottomNavBar extends ConsumerWidget {
               child: Row(
                 children: List.generate(icons.length, (index) {
                   final bool selected = index == selectedIndex;
-
-                  // Extract the correct icon/path based on selection state
                   final dynamic iconSource = selected ? icons[index][1] : icons[index][0];
                   final Color iconColor = selected
                       ? theme.colorScheme.primary
@@ -155,13 +163,12 @@ class _PillBottomNavBar extends ConsumerWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // 🔥 LOGIC: Check type to decide render method
                             if (iconSource is String)
                               Image.asset(
                                 iconSource,
-                                width: 24, // Explicit size to match Icon
+                                width: 24,
                                 height: 24,
-                                color: iconColor, // Tint the image
+                                color: iconColor,
                               )
                             else
                               Icon(
@@ -175,7 +182,7 @@ class _PillBottomNavBar extends ConsumerWidget {
                               curve: Curves.easeOut,
                               child: selected
                                   ? Padding(
-                                padding: const EdgeInsets.only(left: 6), // Increased slightly for image spacing
+                                padding: const EdgeInsets.only(left: 6),
                                 child: Text(
                                   labels[index],
                                   style: TextStyle(

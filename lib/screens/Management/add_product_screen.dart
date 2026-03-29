@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart'; // 1. Import for compute()
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,25 @@ import '../../repositories/product_repository.dart';
 import '../../repositories/settings_repository.dart';
 import '../../services/gating_service.dart';
 import '../../utils/constants.dart';
+
+// 2. TOP-LEVEL FUNCTION (Must be outside the class for compute)
+// This runs on a background thread to prevent UI freezing.
+List<int>? _generateThumbnailBytes(List<int> bytes) {
+  try {
+    // Heavy task: Decode
+    img.Image? decodedImage = img.decodeImage(Uint8List.fromList(bytes));
+    if (decodedImage == null) return null;
+
+    // Heavy task: Resize
+    img.Image thumbnail = img.copyResize(decodedImage, width: 200);
+
+    // Heavy task: Encode
+    return img.encodeJpg(thumbnail, quality: 85);
+  } catch (e) {
+    debugPrint("Error in thumbnail isolate: $e");
+    return null;
+  }
+}
 
 class AddProductScreen extends ConsumerStatefulWidget {
   const AddProductScreen({super.key});
@@ -28,7 +48,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   File? _image;
   bool _isSaving = false;
 
-  // Initialized empty to prevent null errors before load
   List<String> _categories = [];
   String? _selectedCategory;
 
@@ -39,7 +58,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   }
 
   void _loadCategories() {
-    // Fetch latest categories from Hive
     final loaded = ref.read(settingsRepositoryProvider).getProductCategories();
     setState(() {
       _categories = loaded;
@@ -73,13 +91,12 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     );
   }
 
-  // --- IMAGE LOGIC START ---
   Future<void> _pickImage(ImageSource source) async {
     try {
       final picked = await _picker.pickImage(
         source: source,
-        imageQuality: 70, // Optimized for performance
-        maxWidth: 1024,   // Resize large camera photos
+        imageQuality: 70,
+        maxWidth: 1024,
       );
 
       if (picked != null) {
@@ -87,7 +104,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       }
     } catch (e) {
       debugPrint("Error picking image: $e");
-      // Optional: Show a snackbar if permission is denied
     }
   }
 
@@ -124,25 +140,30 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     );
   }
 
+  // 3. UPDATED THUMBNAIL METHOD (Uses compute)
   Future<File?> _createThumbnail(File originalImage) async {
     try {
+      // Read bytes on main thread (fast I/O)
       final imageBytes = await originalImage.readAsBytes();
-      img.Image? decodedImage = img.decodeImage(imageBytes);
-      if (decodedImage == null) return null;
-      img.Image thumbnail = img.copyResize(decodedImage, width: 200);
+
+      final List<int>? thumbnailBytes = await compute(_generateThumbnailBytes, imageBytes);
+
+      if (thumbnailBytes == null) return null;
+
+      // Write bytes back to disk on main thread
       final appDir = await getApplicationDocumentsDirectory();
       final originalFileName = p.basenameWithoutExtension(originalImage.path);
       final thumbnailFileName = '${originalFileName}_thumb.jpg';
       final thumbnailPath = '${appDir.path}/$thumbnailFileName';
       final thumbnailFile = File(thumbnailPath);
-      await thumbnailFile.writeAsBytes(img.encodeJpg(thumbnail, quality: 85));
+
+      await thumbnailFile.writeAsBytes(thumbnailBytes);
       return thumbnailFile;
     } catch (e) {
       debugPrint("Error creating thumbnail: $e");
       return null;
     }
   }
-  // --- IMAGE LOGIC END ---
 
   void _resetForm() {
     setState(() {
@@ -181,17 +202,15 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       String imagePath = '';
       String? thumbnailPath;
 
-      // Handle Image Saving
       if (_image != null) {
         final appDir = await getApplicationDocumentsDirectory();
         final fileName = p.basename(_image!.path);
         final permanentPath = '${appDir.path}/$fileName';
 
-        // Copy to app storage
         final newImage = await _image!.copy(permanentPath);
         imagePath = newImage.path;
 
-        // Generate Thumbnail
+        // Generate Thumbnail (Now Safe & Non-Blocking)
         final thumbnailFile = await _createThumbnail(newImage);
         thumbnailPath = thumbnailFile?.path;
       }
@@ -248,19 +267,11 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final canCustomizeCategory = ref.watch(gatingServiceProvider).canAccessFeature(Feature.categoryCustomization);
 
-    // 🔥 FIX FOR CRASH: PREPARE CATEGORY LIST SAFELY
-    // 1. Create a copy of the categories
     Set<String> safeCategories = Set.from(_categories);
-
-    // 2. If _selectedCategory has a value (e.g. 'yvg') that isn't in the list,
-    // add it temporarily so the Dropdown doesn't crash.
     if (_selectedCategory != null && _selectedCategory!.isNotEmpty) {
       safeCategories.add(_selectedCategory!);
     }
-
-    // 3. Convert back to list for the UI
     final dropdownItems = safeCategories.toList();
-
 
     return Scaffold(
       appBar: AppBar(
@@ -284,7 +295,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // --- CATEGORY DROPDOWN ---
                   DropdownButtonFormField<String>(
                     value: _selectedCategory,
                     decoration: _modernInputDecoration('Category').copyWith(
@@ -295,7 +305,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                         value: cat,
                         child: Text(cat),
                       )),
-                      // Gated "Add New" Logic
                       if (canCustomizeCategory)
                         const DropdownMenuItem(
                           value: 'ADD_NEW',
@@ -325,7 +334,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                         final newCategory = await _showAddCategoryDialog(context);
                         if (newCategory != null && newCategory.isNotEmpty) {
                           await ref.read(settingsRepositoryProvider).addProductCategory(newCategory);
-                          _loadCategories(); // Refresh list from repo
+                          _loadCategories();
                           setState(() {
                             _selectedCategory = newCategory;
                           });
@@ -339,7 +348,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                         ? 'Please select a category'
                         : null,
                   ),
-                  // --- END CATEGORY DROPDOWN ---
 
                   const SizedBox(height: 16),
                   TextFormField(
@@ -369,7 +377,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // --- IMAGE PICKER ---
                   GestureDetector(
                     onTap: () => _showImageSourceModal(context),
                     child: Container(
@@ -417,7 +424,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // --- SAVE BUTTON ---
                   SizedBox(
                     width: double.infinity,
                     height: 50,

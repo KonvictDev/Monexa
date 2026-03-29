@@ -1,14 +1,18 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:billing/screens/settings/webview_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../main_navigation_screen.dart';
 import '../../onboarding_screen.dart';
 import '../../repositories/settings_repository.dart';
+import '../../services/remote_config_service.dart';
 import '../../utils/settings_utils.dart';
+import '../../widgets/upgrade_snackbar.dart';
 import '../auth/phone_sign_in_screen.dart';
 import '../auth/register_screen.dart';
 import '../subscription/subscription_screen.dart';
@@ -17,6 +21,8 @@ import 'financial_defaults_screen.dart';
 import 'receipt_settings_screen.dart';
 import 'appearance_settings_screen.dart';
 import 'change_pin_screen.dart';
+import 'package:share_plus/share_plus.dart'; // ✅ NEW: For Sharing
+import 'package:url_launcher/url_launcher.dart'; // ✅ NEW: For Email
 
 // Imports for Auth & Sync
 import '../../repositories/firebase_sync_repository.dart';
@@ -118,26 +124,241 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return "${size.toStringAsFixed(decimals)} ${suffixes[i]}";
   }
 
-  /// Handles Upgrade Modal for Gated Features
   void _showUpgradeModal(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Feature requires Monexa Pro subscription. Please upgrade.'),
-        backgroundColor: Colors.orange,
+    showUpgradeSnackbar(context, 'Cloud Feature requires Monexa Pro subscription.');
+  }
+
+  void _enableStaffMode() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Allows the sheet to size itself correctly
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 16,
+          // Add safe area padding for bottom navigation bar gesture area
+          bottom: MediaQuery.of(context).padding.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // --- Drag Handle ---
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 24),
+                decoration: BoxDecoration(
+                  color: colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+
+            // --- Hero Icon ---
+            Center(
+              child: Container(
+                height: 72,
+                width: 72,
+                decoration: BoxDecoration(
+                  color: colorScheme.secondaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.badge_rounded,
+                  size: 32,
+                  color: colorScheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // --- Title & Description ---
+            Text(
+              "Enter Staff Mode?",
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "This restricts the app to 'Billing Only'.\nYour Dashboard, Settings, and Inventory will be hidden.",
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+
+            // --- Warning / Info Card ---
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.tertiaryContainer.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: colorScheme.tertiaryContainer,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lock_outline_rounded,
+                      color: colorScheme.tertiary, size: 24),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Admin PIN Required",
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "You will need your 4-digit PIN to exit this mode.",
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // --- Actions ---
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    onPressed: () => Navigator.pop(context),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text("Cancel"),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () async {
+                      HapticFeedback.heavyImpact(); // Tactile confirmation
+                      // 1. Enable Staff Mode
+                      await ref
+                          .read(settingsRepositoryProvider)
+                          .setStaffMode(true);
+
+                      if (mounted) {
+                        // 2. Restart App Navigation
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const MainNavigationScreen()),
+                              (route) => false,
+                        );
+                      }
+                    },
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text("Enter Mode"),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
+  }
+
+// ✅ NEW: Delete Account Logic (Fixed Spacing Issue)
+  void _launchDeleteAccountEmail() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final phoneNumber = user?.phoneNumber ?? 'Unknown';
+    final uid = user?.uid ?? 'Unknown';
+
+    // Helper to force %20 encoding for spaces instead of +
+    String? encodeQueryParameters(Map<String, String> params) {
+      return params.entries
+          .map((e) =>
+      '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+          .join('&');
+    }
+
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: 'support@appsbyanandakumar.com',
+      query: encodeQueryParameters({
+        'subject': 'Request to Delete Account',
+        'body':
+        'I request the permanent deletion of my account and all associated data.\n\nPhone Number: $phoneNumber\nUser ID: $uid\n\nI understand this action is irreversible.',
+      }),
+    );
+
+    try {
+      if (await canLaunchUrl(emailLaunchUri)) {
+        await launchUrl(emailLaunchUri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open email app.')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("Error launching email: $e");
+    }
+  }
+
+  // ✅ NEW: Share App Logic (Viral Growth)
+  void _shareApp() {
+    Share.share(
+      'Check out Monexa - the simple billing app for small businesses!\n\nDownload here: https://play.google.com/store/apps/details?id=com.appsbyanandakumar.billing',
     );
   }
+
 
   // --- Sync Logic ---
   Future<void> _handleSync() async {
     if (_isLoading) return;
+    // ✅ NEW: Check Rate Limit (Owner also has limit to save costs)
+    final settingsRepo = ref.read(settingsRepositoryProvider);
+    final remoteConfig = ref.read(remoteConfigServiceProvider);
+
+    // Check limit
+    if (!settingsRepo.canSync(remoteConfig.dailySyncLimit)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Daily sync limit reached. Try tomorrow.')),
+      );
+      return;
+    }
+
 
     final authRepo = ref.read(authRepositoryProvider);
-    final settingsRepo = ref.read(settingsRepositoryProvider);
 
     User? currentUser = authRepo.currentUser;
     if (currentUser == null) {
@@ -176,6 +397,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     try {
       await ref.read(firebaseSyncRepositoryProvider).syncAllDataToFirebase();
+      await settingsRepo.incrementSyncCount();
       snackBarMessage = 'All local data successfully uploaded to Firebase!';
       snackBarColor = Colors.blue;
     } catch (e) {
@@ -303,22 +525,168 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // --- Sign Out Method ---
   void _handleSignOut() {
-    showConfirmationDialog(
-      context,
-      title: 'Sign Out?',
-      content: 'Are you sure you want to sign out? You will need to verify your phone number to sign back in.',
-      confirmText: 'Sign Out',
-      onConfirm: () async {
-        await ref.read(authRepositoryProvider).signOut();
-        await ref.read(pinAuthProvider.notifier).resetPinAuth();
-        if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const AuthWrapper()),
-                (route) => false,
-          );
-        }
-      },
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 16,
+          bottom: MediaQuery.of(context).padding.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // --- Drag Handle ---
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 24),
+                decoration: BoxDecoration(
+                  color: colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+
+            // --- Hero Icon (Red for Logout) ---
+            Center(
+              child: Container(
+                height: 72,
+                width: 72,
+                decoration: BoxDecoration(
+                  color: colorScheme.errorContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.logout_rounded,
+                  size: 32,
+                  color: colorScheme.onErrorContainer,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // --- Title & Description ---
+            Text(
+              "Sign Out?",
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "You will be disconnected from your account.",
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+
+            // --- Warning Info Card ---
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: colorScheme.outlineVariant,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.phonelink_ring_rounded,
+                      color: colorScheme.primary, size: 24),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Verification Required",
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "To sign back in, you will need to verify your phone number again.",
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // --- Actions ---
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    onPressed: () => Navigator.pop(context),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text("Cancel"),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () async {
+                      // 1. Sign Out Logic
+                      await ref.read(authRepositoryProvider).signOut();
+                      await ref.read(pinAuthProvider.notifier).resetPinAuth();
+
+                      if (mounted) {
+                        // 2. Navigate to Auth Wrapper
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const AuthWrapper()),
+                              (route) => false,
+                        );
+                      }
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: colorScheme.error,
+                      foregroundColor: colorScheme.onError,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text("Sign Out"),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -339,14 +707,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics()),
         children: [
-          // ➡️ NEW SECTION: Account & Subscription
-          _sectionTitle(context, 'Account & Subscription'),
+          // 1️⃣ SUBSCRIPTION (Highlighted at top)
+          _sectionTitle(context, 'Monexa Pro'),
           _settingsCard(context, [
             _settingTile(
               context,
               icon: isPro ? Icons.workspace_premium_rounded : Icons.lock_open_rounded,
               title: isPro ? 'Monexa Pro Active' : 'Upgrade to Monexa Pro',
-              subtitle: isPro ? 'Thank you for your support!' : 'Cloud Sync, Unlimited Data, and Advanced Analytics.',
+              subtitle: isPro
+                  ? 'Thank you for your support!'
+                  : 'Unlock Cloud Sync, Unlimited Data & Analytics.',
               iconColor: isPro ? Colors.amber : Colors.green,
               titleColor: isPro ? Colors.amber.shade700 : Colors.green.shade700,
               onTap: () => Navigator.push(
@@ -357,13 +727,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ]),
           const SizedBox(height: 24),
 
-          _sectionTitle(context, 'General & Business'),
+          // 2️⃣ BUSINESS & CUSTOMIZATION (The "Setup" stuff)
+          _sectionTitle(context, 'Business & Personalization'),
           _settingsCard(context, [
             _settingTile(
               context,
-              icon: Icons.business_center_rounded,
+              icon: Icons.storefront_rounded, // Better icon for profile
               title: 'Business Profile',
-              subtitle: 'Edit business name, address, and tax details.',
+              subtitle: 'Name, address, and tax details.',
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const BusinessProfileScreen()),
@@ -373,160 +744,230 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               context,
               icon: Icons.currency_rupee_rounded,
               title: 'Financial Defaults',
-              subtitle: 'Set default tax rate and currency.',
+              subtitle: 'Tax rate and currency symbol.',
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (_) => const FinancialDefaultsScreen()),
+                MaterialPageRoute(builder: (_) => const FinancialDefaultsScreen()),
               ),
             ),
             _settingTile(
               context,
               icon: Icons.receipt_long_rounded,
-              title: 'Receipt Customization',
-              subtitle: 'Adjust receipt footer and shown details.',
+              title: 'Receipt Design',
+              subtitle: 'Customize footer and print options.',
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (_) => const ReceiptSettingsScreen()),
+                MaterialPageRoute(builder: (_) => const ReceiptSettingsScreen()),
               ),
             ),
-          ]),
-
-          const SizedBox(height: 24),
-
-          _sectionTitle(context, 'Appearance & Data'),
-          _settingsCard(context, [
             _settingTile(
               context,
               icon: Icons.palette_rounded,
               title: 'App Appearance',
-              subtitle: 'Switch theme or color scheme.',
+              subtitle: 'Theme colors and dark mode.',
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (_) => const AppearanceSettingsScreen()),
+                MaterialPageRoute(builder: (_) => const AppearanceSettingsScreen()),
               ),
+            ),
+          ]),
+          const SizedBox(height: 24),
+
+          // 3️⃣ SECURITY & ACCESS (The "Control" stuff)
+          _sectionTitle(context, 'Security & Access'),
+          _settingsCard(context, [
+            _settingTile(
+              context,
+              icon: Icons.badge_outlined,
+              title: 'Staff Mode',
+              subtitle: 'Restrict app access for employees.',
+              iconColor: Colors.deepPurple,
+              titleColor: Colors.deepPurple.shade700,
+              onTap: _enableStaffMode,
             ),
             _settingTile(
               context,
               icon: Icons.lock_reset_rounded,
-              title: 'Change Security PIN',
-              subtitle: 'Update your 4-digit passcode.',
+              title: 'Change Master PIN',
+              subtitle: 'Update your 4-digit security code.',
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ChangePinScreen()),
               ),
             ),
-            // ➡️ GATED: Upload Data (Sync)
+          ]),
+          const SizedBox(height: 24),
+
+          // 4️⃣ DATA & CLOUD (The "Heavy" stuff)
+          _sectionTitle(context, 'Data Management'),
+          _settingsCard(context, [
             _settingTile(
               context,
               icon: Icons.cloud_upload_rounded,
-              title: 'Upload Data (Sync)',
-              subtitle: isPro ? 'Send local data to Firebase.' : 'Requires Monexa Pro.',
-              iconColor: isPro ? Colors.blue : Colors.grey,
-              titleColor: isPro ? Colors.blue.shade700 : Colors.grey.shade600,
+              title: 'Sync to Cloud',
+              subtitle: isPro ? 'Backup local data to Firebase.' : 'Requires Monexa Pro.',
+              iconColor: Colors.blue,
               onTap: isPro ? _handleSync : () => _showUpgradeModal(context),
             ),
-            // ➡️ GATED: Download Data (Restore)
             _settingTile(
               context,
               icon: Icons.cloud_download_rounded,
-              title: 'Download Data (Restore)',
-              subtitle: isPro ? 'Overwrite local data with cloud backup.' : 'Requires Monexa Pro.',
-              iconColor: isPro ? Colors.orange : Colors.grey,
-              titleColor: isPro ? Colors.orange.shade700 : Colors.grey.shade600,
+              title: 'Restore from Cloud',
+              subtitle: isPro ? 'Overwrite app with cloud backup.' : 'Requires Monexa Pro.',
+              iconColor: Colors.orange,
               onTap: isPro ? _handleRestore : () => _showUpgradeModal(context),
             ),
             _settingTile(
               context,
-              icon: Icons.warning_amber_rounded,
-              title: 'Clear All Data',
+              icon: Icons.delete_sweep_rounded,
+              title: 'Clear Local Data',
               subtitle: dataSizeBytes == null
-                  ? 'Calculating data size...'
-                  : 'Delete all app data permanently (${formatBytes(dataSizeBytes!)})',
+                  ? 'Calculating...'
+                  : 'Delete on-device data (${formatBytes(dataSizeBytes!)})',
               iconColor: Colors.red,
               titleColor: Colors.red,
               onTap: _handleClearAllData,
             ),
           ]),
-
           const SizedBox(height: 24),
 
-          _sectionTitle(context, 'Legal & Information'),
+          // 5️⃣ ABOUT & LEGAL (The "Footer" stuff)
+          _sectionTitle(context, 'About & Support'),
           _settingsCard(context, [
             _settingTile(
               context,
-              icon: Icons.gavel_rounded,
-              title: 'Terms and Conditions',
-              subtitle: 'Read official terms of use.',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const WebViewScreen(
-                      title: 'Terms & Conditions',
-                      url:
-                      'https://konvictdev.github.io/monexa_privacy/terms/index.html',
-                    ),
-                  ),
-                );
-              },
+              icon: Icons.favorite_rounded, // Friendly icon
+              title: 'Tell a Friend',
+              subtitle: 'Share Monexa with others.',
+              iconColor: Colors.pink,
+              onTap: _shareApp,
             ),
             _settingTile(
               context,
-              icon: Icons.security_rounded,
-              title: 'Privacy Policy',
-              subtitle: 'Learn how your data is handled.',
+              icon: Icons.policy_rounded,
+              title: 'Legal & Privacy',
+              subtitle: 'Terms, Privacy Policy, and Licenses.',
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const WebViewScreen(
-                      title: 'Privacy Policy',
-                      url:
-                      'https://konvictdev.github.io/monexa_privacy/privacy/index.html',
-                    ),
-                  ),
-                );
-              },
-            ),
-            _settingTile(
-              context,
-              icon: Icons.code_rounded,
-              title: 'Open Source Licenses',
-              subtitle: 'View app dependencies.',
-              onTap: () {
-                showLicensePage(
+                final theme = Theme.of(context);
+                final colorScheme = theme.colorScheme;
+
+                showModalBottomSheet(
                   context: context,
-                  applicationName: _appName,
-                  applicationVersion: _appVersion,
+                  isScrollControlled: true, // Allows content to determine height
+                  backgroundColor: colorScheme.surface,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                  ),
+                  builder: (context) => Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).padding.bottom + 16, // Safe area
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // --- 1. Drag Handle ---
+                        Center(
+                          child: Container(
+                            width: 32,
+                            height: 4,
+                            margin: const EdgeInsets.symmetric(vertical: 16),
+                            decoration: BoxDecoration(
+                              color: colorScheme.outlineVariant,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+
+                        // --- 2. Header Title ---
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                          child: Text(
+                            "Legal Information",
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+
+                        // --- 3. Menu Items ---
+                        _buildLegalTile(
+                          context,
+                          icon: Icons.description_outlined,
+                          title: 'Terms & Conditions',
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const WebViewScreen(
+                                  title: 'Terms & Conditions',
+                                  url: 'https://konvictdev.github.io/monexa_privacy/terms/index.html',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        _buildLegalTile(
+                          context,
+                          icon: Icons.privacy_tip_outlined,
+                          title: 'Privacy Policy',
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const WebViewScreen(
+                                  title: 'Privacy Policy',
+                                  url: 'https://konvictdev.github.io/monexa_privacy/privacy/index.html',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        _buildLegalTile(
+                          context,
+                          icon: Icons.code_rounded,
+                          title: 'Open Source Licenses',
+                          onTap: () {
+                            Navigator.pop(context);
+                            showLicensePage(
+                              context: context,
+                              applicationName: _appName,
+                              applicationVersion: _appVersion,
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
-          ]),
-
-          const SizedBox(height: 24),
-          _settingsCard(context, [
             _settingTile(
               context,
               icon: Icons.logout_rounded,
               title: 'Sign Out',
-              subtitle: 'Sign out of your Firebase account.',
-              iconColor: Colors.red,
-              titleColor: Colors.red,
+              subtitle: 'Disconnect your account.',
               onTap: _handleSignOut,
+            ),
+            _settingTile(
+              context,
+              icon: Icons.no_accounts_rounded,
+              title: 'Delete Account',
+              subtitle: 'Permanently remove your account.',
+              iconColor: Colors.grey,
+              onTap: _launchDeleteAccountEmail,
             ),
           ]),
 
           const SizedBox(height: 32),
           Center(
             child: Text(
-              '$_appVersion • $_appName',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).hintColor,
+              '$_appName $_appVersion',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Theme.of(context).hintColor.withOpacity(0.5),
               ),
-              textAlign: TextAlign.center,
             ),
           ),
           const SizedBox(height: 80),
@@ -534,6 +975,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
+
+
 
   // --- Helper UI methods ---
   Widget _sectionTitle(BuildContext context, String title) => Padding(
@@ -580,7 +1023,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       onTap: onTap,
     );
   }
+  Widget _buildLegalTile(BuildContext context,
+      {required IconData icon,
+        required String title,
+        required VoidCallback onTap}) {
+    final theme = Theme.of(context);
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      leading: Icon(icon, color: theme.colorScheme.onSurfaceVariant),
+      title: Text(
+        title,
+        style: theme.textTheme.bodyLarge?.copyWith(
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      trailing: Icon(
+        Icons.chevron_right_rounded,
+        color: theme.colorScheme.outline,
+        size: 20,
+      ),
+      onTap: onTap,
+    );
+  }
 }
+
+
 
 /// A dedicated StatefulWidget to manage the loading sheet's progress animation
 class _LoadingSheetContent extends StatefulWidget {

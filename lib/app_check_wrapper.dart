@@ -62,9 +62,7 @@ class _AppCheckWrapperState extends ConsumerState<AppCheckWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    // --- Block Check Listener ---
-    // ✅ The Provider type is correctly inferred as AsyncValue<bool>
-    //    because isBlockedProvider in app_check_providers.dart is a FutureProvider.
+
     ref.listen<AsyncValue<bool>>(isBlockedProvider, (prev, next) {
       // Safely check the resolved value
       final isBlocked = next.value == true;
@@ -115,7 +113,7 @@ class _AppCheckWrapperState extends ConsumerState<AppCheckWrapper> {
           builder: (dialogContext) => _buildUpdateDialog(
               dialogContext,
               minRequiredVersion!,
-              'https://play.google.com/store/apps/details?id=com.monexa.billing'
+              'https://play.google.com/store/apps/details?id=com.appsbyanandakumar.billing'
           ),
         );
       }

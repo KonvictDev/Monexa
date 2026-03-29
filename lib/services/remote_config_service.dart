@@ -1,5 +1,3 @@
-// lib/services/remote_config_service.dart
-
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +12,8 @@ class RemoteConfigService {
   int get freeProductLimit => _remoteConfig.getInt('free_product_limit');
 
   String get subscriptionProductList => _remoteConfig.getString('subscription_product_ids');
+
+  int get dailySyncLimit => _remoteConfig.getInt('daily_sync_limit');
 
 }
 
@@ -32,6 +32,7 @@ Future<void> setupRemoteConfig() async {
     'subscription_product_ids': 'monexa_pro_monthly,monexa_pro_annual',
     'free_order_limit_monthly': 30,
     'free_product_limit': 20,
+    'daily_sync_limit': 5,
   });
 
   try {
